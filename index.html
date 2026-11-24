@@ -355,6 +355,10 @@
                             </div>
                         </div>
 
+                        <p id="auth-trial-note" class="hidden text-xs leading-relaxed text-neutral-400">
+                            La création d’un compte démarre un essai gratuit de 24 heures. Le renouvellement est effectué par l’administrateur.
+                        </p>
+
                         <button
                             type="submit"
                             id="auth-submit-btn"
@@ -386,6 +390,52 @@
             </div>
         </div>
     </div>
+
+    <!-- ==================== ÉCRAN D'ABONNEMENT EXPIRÉ OU SUSPENDU ==================== -->
+    <main id="subscription-screen" class="hidden fixed inset-0 z-[60] overflow-y-auto bg-black text-white">
+        <div class="min-h-full flex items-center justify-center px-5 py-10">
+            <section class="w-full max-w-2xl space-y-7">
+                <div class="space-y-3">
+                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">Warisat · Abonnement</p>
+                    <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">Abonnement Expiré ou Suspendu</h1>
+                    <p class="text-sm sm:text-base leading-relaxed text-neutral-300">
+                        Votre accès au service a été interrompu. Pour continuer, veuillez renouveler votre abonnement.
+                    </p>
+                </div>
+
+                <section class="space-y-4 border-t border-white/10 pt-6">
+                    <h2 class="text-base font-semibold">Instructions de renouvellement</h2>
+                    <ol class="space-y-4 text-sm leading-relaxed text-neutral-300">
+                        <li class="flex gap-3">
+                            <span class="text-neutral-500">1.</span>
+                            <span>Procédez au paiement Airtel Money de <strong class="font-semibold text-white">5 000 F CFA</strong> via le Code Agent qui vous sera communiqué dans le Forum.</span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="text-neutral-500">2.</span>
+                            <span>Faites une capture d’écran du paiement, en veillant à ce que l’ID de la transaction soit bien visible.</span>
+                        </li>
+                        <li class="flex gap-3">
+                            <span class="text-neutral-500">3.</span>
+                            <span>Envoyez-la dans notre groupe WhatsApp, accompagnée de votre adresse e-mail ou de votre ID d’inscription.</span>
+                        </li>
+                    </ol>
+                </section>
+
+                <p class="text-sm leading-relaxed text-neutral-400">
+                    Pour plus d’informations, contactez-nous via nos canaux agréés.<br />
+                    Nous vous remercions pour votre fidélité.
+                </p>
+
+                <button
+                    type="button"
+                    onclick="logoutSession()"
+                    class="w-full sm:w-auto px-6 py-3 rounded-xl bg-white text-sm font-semibold text-black hover:bg-neutral-200 transition-colors"
+                >
+                    Se déconnecter
+                </button>
+            </section>
+        </div>
+    </main>
 
     <!-- ==================== MODALE RAPIDE CONFIGURATION SUPABASE ==================== -->
     <div id="supabase-config-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
@@ -609,6 +659,13 @@
 
     <!-- ==================== INTERFACE SMART TV WARISAT ==================== -->
     <div id="tv-interface" class="hidden fixed inset-0 z-30 bg-black overflow-hidden">
+        <div id="subscription-notice" role="status" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-xl rounded-xl border border-amber-400/25 bg-neutral-950/95 px-4 py-3 text-sm text-amber-100 shadow-xl">
+            <div class="flex items-start justify-between gap-4">
+                <p id="subscription-notice-text" class="leading-relaxed"></p>
+                <button type="button" onclick="dismissSubscriptionNotice()" aria-label="Fermer le rappel d’abonnement" class="shrink-0 text-amber-200/70 hover:text-white">✕</button>
+            </div>
+        </div>
+
         <!-- Zone de détection du survol supérieur -->
         <div
             id="top-hover-zone"
@@ -826,6 +883,9 @@
             VPN_STATE: 'warisat_vpn_state_v1',
             SUPABASE_CFG: 'warisat_supabase_cfg_v1'
         };
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const SUBSCRIPTION_NOTICE_WINDOW_MS = 5 * DAY_MS;
+        const SUBSCRIPTION_CHECK_INTERVAL_MS = 60 * 1000;
 
         const SERVERS = {
             KO: 'https://kool.to',
@@ -841,6 +901,8 @@
         let activeServerKey = 'KO';
         let menuHidden = false;
         let inactivityTimer = null;
+        let subscriptionCheckTimer = null;
+        let subscriptionCheckInProgress = false;
         let toastTimer = null;
         let revealAdminSecrets = false;
 
@@ -1099,6 +1161,8 @@
             const tabRegister = document.getElementById('tab-register');
             const submitBtn = document.getElementById('auth-submit-btn');
             const passInput = document.getElementById('auth-password');
+            const trialNote = document.getElementById('auth-trial-note');
+            trialNote?.classList.toggle('hidden', currentAuthMode !== 'register');
 
             if (currentAuthMode === 'register') {
                 tabRegister?.classList.add('bg-white', 'text-neutral-900');
@@ -1286,6 +1350,64 @@
             saveUsersDB(users);
         }
 
+        function showSubscriptionScreen() {
+            clearInterval(subscriptionCheckTimer);
+            subscriptionCheckTimer = null;
+            clearTimeout(inactivityTimer);
+            inactivityTimer = null;
+            currentSession = null;
+            const frame = document.getElementById('tv-frame');
+            if (frame) frame.src = 'about:blank';
+            document.getElementById('auth-screen')?.classList.add('hidden');
+            document.getElementById('admin-panel')?.classList.add('hidden');
+            document.getElementById('admin-choice-modal')?.classList.add('hidden');
+            document.getElementById('tv-interface')?.classList.add('hidden');
+            document.getElementById('subscription-screen')?.classList.remove('hidden');
+        }
+
+        function updateSubscriptionNotice(user) {
+            const notice = document.getElementById('subscription-notice');
+            const message = document.getElementById('subscription-notice-text');
+            if (!notice || !message) return;
+
+            const remainingMs = user.expiresAt - Date.now();
+            if (remainingMs <= 0 || remainingMs > SUBSCRIPTION_NOTICE_WINDOW_MS) {
+                notice.classList.add('hidden');
+                return;
+            }
+
+            const days = Math.ceil(remainingMs / DAY_MS);
+            message.textContent = `Votre abonnement expire dans ${days} jour${days > 1 ? 's' : ''}. Pour éviter une interruption, contactez l’administrateur afin de le renouveler.`;
+            notice.classList.remove('hidden');
+        }
+
+        function dismissSubscriptionNotice() {
+            document.getElementById('subscription-notice')?.classList.add('hidden');
+        }
+
+        async function checkSubscriptionAccess() {
+            if (!currentSession || currentSession.isAdmin) return;
+            if (subscriptionCheckInProgress) return;
+            const session = currentSession;
+            subscriptionCheckInProgress = true;
+            try {
+                const user = await findUserByEmail(session.email);
+                if (currentSession !== session) return;
+                if (!user || user.blocked || !user.expiresAt || Date.now() >= user.expiresAt) {
+                    showSubscriptionScreen();
+                    return;
+                }
+
+                currentSession = { ...user, isAdmin: false };
+                const notice = document.getElementById('subscription-notice');
+                if (!notice?.classList.contains('hidden')) {
+                    updateSubscriptionNotice(user);
+                }
+            } finally {
+                subscriptionCheckInProgress = false;
+            }
+        }
+
         // Traitement du formulaire de connexion / création de compte
         async function handleAuthSubmit(e) {
             e.preventDefault();
@@ -1322,18 +1444,19 @@
                     showAuthAlert('Un compte existe déjà avec cet email.');
                     return;
                 }
-                const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+                const createdAt = Date.now();
+                const expiresAt = createdAt + DAY_MS;
                 const newUser = await persistUserRecord({
                     id: 'usr_' + Date.now(),
                     email,
                     passwordHash,
                     blocked: false,
                     expiresAt,
-                    createdAt: Date.now()
+                    createdAt
                 }, true);
                 currentSession = { ...newUser, isAdmin: false };
                 enterTVInterface();
-                showToast('Compte créé · Session active (7 jours)');
+                showToast('Compte créé · Essai gratuit de 1 jour');
                 return;
             }
 
@@ -1344,12 +1467,8 @@
                 showAuthAlert('Email ou mot de passe incorrect.');
                 return;
             }
-            if (user.blocked) {
-                showAuthAlert('Votre compte a été bloqué par l’administrateur.');
-                return;
-            }
-            if (!user.expiresAt || Date.now() > user.expiresAt) {
-                showAuthAlert('Votre abonnement a expiré. Contactez l’administrateur pour le renouveler.');
+            if (user.blocked || !user.expiresAt || Date.now() >= user.expiresAt) {
+                showSubscriptionScreen();
                 return;
             }
 
@@ -1375,7 +1494,7 @@
                 u => u.id === currentSession.id || u.email.toLowerCase() === currentSession.email.toLowerCase()
             );
             if (!liveUser || liveUser.blocked) return false;
-            if (!liveUser.expiresAt || Date.now() > liveUser.expiresAt) return false;
+            if (!liveUser.expiresAt || Date.now() >= liveUser.expiresAt) return false;
             currentSession = { ...liveUser, isAdmin: false };
             return true;
         }
@@ -1396,122 +1515,12 @@
             }
         }
 
-        function saveUsersDB(users) {
-            try {
-                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-            } catch (e) {
-                showToast('Erreur de sauvegarde locale');
-            }
-        }
-
-        // Traitement du formulaire de connexion / création de compte
-        async function handleAuthSubmit(e) {
-            e.preventDefault();
-            hideAuthAlert();
-
-            const email = (document.getElementById('auth-email')?.value || '').trim().toLowerCase();
-            const password = document.getElementById('auth-password')?.value || '';
-            if (!email || !password) return;
-
-            // Vérification du compte Administrateur
-            if (email === ADMIN_EMAIL.toLowerCase()) {
-                if (currentAuthMode === 'register') {
-                    showAuthAlert('Ce compte administrateur existe déjà. Veuillez vous connecter.');
-                    return;
-                }
-                if (password === ADMIN_PASS) {
-                    currentSession = { email: ADMIN_EMAIL, isAdmin: true, expiresAt: null };
-                    document.getElementById('auth-screen')?.classList.add('hidden');
-                    const choiceEmail = document.getElementById('admin-choice-email');
-                    if (choiceEmail) choiceEmail.textContent = ADMIN_EMAIL;
-                    document.getElementById('admin-choice-modal')?.classList.remove('hidden');
-                    return;
-                } else {
-                    showAuthAlert('Mot de passe administrateur incorrect.');
-                    return;
-                }
-            }
-
-            const users = getUsersDB();
-            const passwordHash = await hashSecret(password);
-
-            if (currentAuthMode === 'register') {
-                if (users.some(u => u.email.toLowerCase() === email)) {
-                    showAuthAlert('Un compte existe déjà avec cet email.');
-                    return;
-                }
-                const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
-                const newUser = {
-                    id: 'usr_' + Date.now(),
-                    email,
-                    passwordHash,
-                    blocked: false,
-                    expiresAt,
-                    createdAt: Date.now()
-                };
-                users.push(newUser);
-                saveUsersDB(users);
-                currentSession = { ...newUser, isAdmin: false };
-                enterTVInterface();
-                showToast('Compte créé · Session active (7 jours)');
-                return;
-            }
-
-            // Connexion utilisateur standard
-            const user = users.find(u => u.email.toLowerCase() === email);
-            const matchesSecret = user && (user.passwordHash === passwordHash || user.password === password);
-            if (!user || !matchesSecret) {
-                showAuthAlert('Email ou mot de passe incorrect.');
-                return;
-            }
-            if (user.blocked) {
-                showAuthAlert('Votre compte a été bloqué par l’administrateur.');
-                return;
-            }
-            if (!user.expiresAt || Date.now() > user.expiresAt) {
-                showAuthAlert('Votre abonnement a expiré. Contactez l’administrateur pour le renouveler.');
-                return;
-            }
-
-            if (!user.passwordHash) {
-                user.passwordHash = passwordHash;
-                delete user.password;
-                saveUsersDB(users);
-            }
-
-            currentSession = { ...user, isAdmin: false };
-            enterTVInterface();
-        }
-
-        function isSessionValid() {
-            if (!currentSession) return false;
-            if (currentSession.isAdmin) {
-                return currentSession.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-            }
-            const freshUsers = getUsersDB();
-            const liveUser = freshUsers.find(
-                u => u.id === currentSession.id || u.email.toLowerCase() === currentSession.email.toLowerCase()
-            );
-            if (!liveUser || liveUser.blocked) return false;
-            if (!liveUser.expiresAt || Date.now() > liveUser.expiresAt) return false;
-            currentSession = { ...liveUser, isAdmin: false };
-            return true;
-        }
-
-        function enterAdminDashboard() {
-            if (!currentSession || !currentSession.isAdmin) {
-                showToast('Accès réservé à l’administrateur');
-                return;
-            }
-            document.getElementById('admin-choice-modal')?.classList.add('hidden');
-            document.getElementById('tv-interface')?.classList.add('hidden');
-            document.getElementById('auth-screen')?.classList.add('hidden');
-            document.getElementById('admin-panel')?.classList.remove('hidden');
-            renderAdminUsers();
-        }
-
         function enterTVInterface() {
             if (!isSessionValid()) {
+                if (currentSession && !currentSession.isAdmin) {
+                    showSubscriptionScreen();
+                    return;
+                }
                 logoutSession();
                 showAuthAlert('Session expirée ou non autorisée.');
                 return;
@@ -1519,6 +1528,7 @@
             document.getElementById('auth-screen')?.classList.add('hidden');
             document.getElementById('admin-choice-modal')?.classList.add('hidden');
             document.getElementById('admin-panel')?.classList.add('hidden');
+            document.getElementById('subscription-screen')?.classList.add('hidden');
             document.getElementById('tv-interface')?.classList.remove('hidden');
 
             const adminBtn = document.getElementById('tv-admin-btn');
@@ -1530,11 +1540,21 @@
             const targetServer = SERVERS[activeServerKey] ? activeServerKey : savedSettings.defaultServer;
             selectServer(targetServer, true);
             showTVMenu(true);
+
+            clearInterval(subscriptionCheckTimer);
+            if (currentSession && !currentSession.isAdmin) {
+                updateSubscriptionNotice(currentSession);
+                subscriptionCheckTimer = setInterval(checkSubscriptionAccess, SUBSCRIPTION_CHECK_INTERVAL_MS);
+            } else {
+                document.getElementById('subscription-notice')?.classList.add('hidden');
+            }
         }
 
         function logoutSession() {
             currentSession = null;
             clearTimeout(inactivityTimer);
+            clearInterval(subscriptionCheckTimer);
+            subscriptionCheckTimer = null;
             closeVypnDrawer();
             closeTVSettingsDrawer();
 
@@ -1547,6 +1567,8 @@
             document.getElementById('admin-panel')?.classList.add('hidden');
             document.getElementById('admin-choice-modal')?.classList.add('hidden');
             document.getElementById('tv-interface')?.classList.add('hidden');
+            document.getElementById('subscription-screen')?.classList.add('hidden');
+            document.getElementById('subscription-notice')?.classList.add('hidden');
             document.getElementById('auth-screen')?.classList.remove('hidden');
             setAuthMode('login');
         }
