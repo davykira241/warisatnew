@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Warisat - Navigateur Smart TV Minimaliste</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SDK officiel Supabase pour la gestion centralisée des comptes et abonnements -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <style>
+        /* Typographie globale et prévention du débordement horizontal */
+        html, body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #050507;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* Mouvement panoramique subtil du mur de programmes en arrière-plan */
+        @keyframes bgPanSlow {
+            0% {
+                transform: scale(1.08) translate3d(0%, 0%, 0);
+            }
+            50% {
+                transform: scale(1.13) translate3d(-1.5%, -1.5%, 0);
+            }
+            100% {
+                transform: scale(1.08) translate3d(0%, 0%, 0);
+            }
+        }
+
+        .tv-wall-bg {
+            animation: bgPanSlow 26s ease-in-out infinite;
+            will-change: transform;
+        }
+
+        /* Lueur flottante douce du logo Warisat */
+        @keyframes logoFloatGlow {
+            0%, 100% {
+                transform: translateY(0px);
+                filter: drop-shadow(0 0 18px rgba(245, 158, 11, 0.35)) drop-shadow(0 0 32px rgba(220, 38, 38, 0.22));
+            }
+            50% {
+                transform: translateY(-4px);
+                filter: drop-shadow(0 0 26px rgba(251, 191, 36, 0.55)) drop-shadow(0 0 42px rgba(239, 68, 68, 0.35));
+            }
+        }
+
+        .warisat-logo-anim {
+            animation: logoFloatGlow 4.2s ease-in-out infinite;
+        }
+
+        /* Rotation continue de la lumière néon autour du cadre d'identification */
+        @keyframes neonSpin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .neon-orbit-ring {
+            position: absolute;
+            inset: -140%;
+            background: conic-gradient(
+                from 0deg,
+                transparent 0deg,
+                transparent 65deg,
+                rgba(220, 38, 38, 0.95) 115deg,
+                rgba(251, 191, 36, 0.98) 155deg,
+                rgba(239, 68, 68, 0.9) 195deg,
+                transparent 245deg,
+                transparent 310deg,
+                rgba(245, 158, 11, 0.75) 340deg,
+                transparent 360deg
+            );
+            animation: neonSpin 6.5s linear infinite;
+            will-change: transform;
+        }
+
+        /* Barre de défilement discrète pour le panneau administrateur */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 15, 20, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(220, 38, 38, 0.55);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(239, 68, 68, 0.85);
+        }
+    </style>
+</head>
+<body class="bg-[#050507] text-white antialiased selection:bg-red-600 selection:text-white">
+
+    <!-- ==================== ÉCRAN D'IDENTIFICATION (CONNEXION / CRÉATION DE COMPTE) ==================== -->
+    <div id="auth-screen" class="fixed inset-0 z-40 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-[#050507]">
+        <!-- Arrière-plan mur de programmes -->
+        <div class="fixed inset-0 overflow-hidden pointer-events-none">
+            <img
+                id="auth-bg-image"
+                src="image_cdc2b4.jpg"
+                alt="Mur de programmes Warisat"
+                onerror="if (!this.dataset.fallback1) { this.dataset.fallback1 = '1'; this.src = 'image_cd6c80.jpg'; } else { this.style.display = 'none'; }"
+                class="tv-wall-bg w-full h-full object-cover opacity-45"
+            />
+            <!-- Dégradés sombres pour assurer la lisibilité -->
+            <div class="fixed inset-0 bg-gradient-to-b from-black/80 via-black/65 to-[#050507]/95"></div>
+            <div class="fixed inset-0 bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.14)_0%,rgba(5,5,7,0.88)_75%)]"></div>
+        </div>
+
+        <!-- Conteneur central translucide avec lumière néon tournante -->
+        <div class="relative z-10 w-full max-w-md my-auto">
+            <!-- Halo néon externe -->
+            <div class="absolute -inset-1 rounded-3xl bg-gradient-to-r from-red-600/35 via-amber-500/35 to-red-600/35 blur-xl pointer-events-none"></div>
+
+            <!-- Cadre tournant néon -->
+            <div class="relative rounded-3xl p-[2px] overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.9)]">
+                <div class="neon-orbit-ring pointer-events-none"></div>
+
+                <!-- Carte translucide (glassmorphism) -->
+                <div class="relative rounded-[22px] bg-neutral-950/80 backdrop-blur-xl border border-white/10 p-6 sm:p-8 space-y-6">
+                    <!-- Logo Warisat affiché en intégralité -->
+                    <div class="flex flex-col items-center text-center space-y-2">
+                        <div class="w-full max-w-[230px] sm:max-w-[260px] flex items-center justify-center warisat-logo-anim">
+                            <img
+                                id="auth-brand-logo"
+                                src="logo_3.png"
+                                alt="Logo Warisat"
+                                onerror="if (!this.dataset.fb1) { this.dataset.fb1 = '1'; this.src = 'logo_2.png'; } else if (!this.dataset.fb2) { this.dataset.fb2 = '1'; this.src = 'logo.png'; } else { this.classList.add('hidden'); document.getElementById('auth-svg-fallback')?.classList.remove('hidden'); }"
+                                class="w-full h-auto max-h-32 object-contain rounded-xl"
+                            />
+                            <!-- Secours SVG si aucune image locale n'est présente -->
+                            <div id="auth-svg-fallback" class="hidden flex flex-col items-center justify-center py-2">
+                                <svg class="w-16 h-16" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="32" cy="32" r="27" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="10 6" />
+                                    <path d="M18 38C18 27.5 26.5 19 37 19L45 27C37 35 28.5 38 18 38Z" fill="#f59e0b" />
+                                    <path d="M38 14C43.5 14 48 18.5 48 24" stroke="#ef4444" stroke-width="3" stroke-linecap="round" />
+                                    <path d="M38 9C46.3 9 53 15.7 53 24" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" />
+                                </svg>
+                                <span class="mt-2 text-2xl font-black tracking-wider bg-gradient-to-r from-amber-400 via-yellow-200 to-white bg-clip-text text-transparent">
+                                    WARISAT
+                                </span>
+                            </div>
+                        </div>
+                        <p class="text-xs uppercase tracking-[0.22em] text-neutral-300 font-semibold">
+                            Smart TV · Accès Session
+                        </p>
+                    </div>
+
+                    <!-- Onglets Connexion / Créer un compte -->
+                    <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
+                        <button
+                            type="button"
+                            id="tab-login"
+                            onclick="setAuthMode('login')"
+                            class="py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold transition-all bg-red-600 text-white shadow-lg shadow-red-600/30"
+                        >
+                            Se connecter
+                        </button>
+                        <button
+                            type="button"
+                            id="tab-register"
+                            onclick="setAuthMode('register')"
+                            class="py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all text-neutral-300 hover:text-white hover:bg-white/5"
+                        >
+                            Créer un compte
+                        </button>
+                    </div>
+
+                    <!-- Message d'erreur ou d'information -->
+                    <div
+                        id="auth-alert"
+                        role="alert"
+                        class="hidden rounded-xl border border-red-500/50 bg-red-950/65 px-4 py-3 text-xs sm:text-sm text-red-200 leading-relaxed"
+                    ></div>
+
+                    <!-- Formulaire d'identification -->
+                    <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                        <div class="space-y-1.5">
+                            <label for="auth-email" class="block text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                                Nom d'utilisateur (Email)
+                            </label>
+                            <input
+                                id="auth-email"
+                                type="email"
+                                required
+                                autocomplete="email"
+                                placeholder="exemple@domaine.com"
+                                class="w-full rounded-xl bg-black/55 border border-white/15 focus:border-red-500 focus:ring-2 focus:ring-red-500/30 px-4 py-3 text-sm text-white placeholder-neutral-500 outline-none transition-all"
+                            />
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <label for="auth-password" class="block text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                                Mot de passe
+                            </label>
+                            <div class="relative">
+                                <input
+                                    id="auth-password"
+                                    type="password"
+                                    required
+                                    autocomplete="current-password"
+                                    placeholder="••••••••••••"
+                                    class="w-full rounded-xl bg-black/55 border border-white/15 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/25 pl-4 pr-12 py-3 text-sm text-white placeholder-neutral-500 outline-none transition-all"
+                                />
+                                <button
+                                    type="button"
+                                    onclick="togglePasswordVisibility()"
+                                    aria-label="Afficher ou masquer le mot de passe"
+                                    class="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+                                >
+                                    <svg id="eye-icon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            id="auth-submit-btn"
+                            class="w-full py-3.5 px-5 rounded-xl font-bold text-sm tracking-wide text-white bg-gradient-to-r from-red-600 via-red-500 to-amber-500 hover:from-red-500 hover:to-amber-400 shadow-lg shadow-red-600/30 active:scale-[0.99] transition-all"
+                        >
+                            Accéder à la session
+                        </button>
+                    </form>
+
+                    <div class="pt-1 text-center text-[11px] text-neutral-400">
+                        Session protégée · Warisat TV · <span id="backend-mode-badge" class="text-amber-300/90">Mode Local</span>
+                        <button
+                            type="button"
+                            onclick="toggleSupabaseQuickModal()"
+                            class="ml-1.5 underline text-neutral-300 hover:text-amber-300 transition-colors"
+                        >
+                            Configurer Supabase
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALE RAPIDE CONFIGURATION SUPABASE ==================== -->
+    <div id="supabase-config-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div class="w-full max-w-md rounded-3xl bg-neutral-950/95 border border-white/15 p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-extrabold text-white">Connexion Supabase</h3>
+                    <p class="text-xs text-neutral-400">Renseignez l’URL et la clé publique (anon) de votre projet.</p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeSupabaseQuickModal()"
+                    class="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <div class="space-y-1">
+                    <label for="sb-project-url" class="block text-xs font-semibold text-neutral-300">URL du projet Supabase</label>
+                    <input
+                        id="sb-project-url"
+                        type="url"
+                        placeholder="https://xxxx.supabase.co"
+                        class="w-full rounded-xl bg-black/70 border border-white/15 px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-400"
+                    />
+                </div>
+                <div class="space-y-1">
+                    <label for="sb-anon-key" class="block text-xs font-semibold text-neutral-300">Clé publique (anon key)</label>
+                    <input
+                        id="sb-anon-key"
+                        type="text"
+                        placeholder="eyJhbGciOi..."
+                        class="w-full rounded-xl bg-black/70 border border-white/15 px-3.5 py-2.5 text-xs text-white outline-none focus:border-amber-400"
+                    />
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2">
+                <button
+                    type="button"
+                    onclick="clearSupabaseQuickConfig()"
+                    class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-neutral-300"
+                >
+                    Réinitialiser
+                </button>
+                <button
+                    type="button"
+                    onclick="saveSupabaseQuickConfig()"
+                    class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black"
+                >
+                    Enregistrer & Connecter
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODALE DE CHOIX ADMINISTRATEUR ==================== -->
+    <div id="admin-choice-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div class="w-full max-w-md rounded-3xl bg-neutral-950/90 border border-amber-500/40 p-6 sm:p-7 shadow-2xl space-y-6">
+            <div class="space-y-1.5 text-center">
+                <span class="inline-block px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-400/30">
+                    Compte Administrateur Vérifié
+                </span>
+                <h2 class="text-xl sm:text-2xl font-extrabold text-white">Choisir un espace</h2>
+                <p id="admin-choice-email" class="text-xs text-neutral-400"></p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <button
+                    type="button"
+                    onclick="enterAdminDashboard()"
+                    class="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl bg-gradient-to-br from-amber-500/20 to-red-600/20 hover:from-amber-500/30 hover:to-red-600/30 border border-amber-400/40 text-center transition-all"
+                >
+                    <svg class="w-7 h-7 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span class="text-sm font-bold text-white">Menu Administration</span>
+                    <span class="text-[11px] text-neutral-300">Gérer utilisateurs & abonnements</span>
+                </button>
+
+                <button
+                    type="button"
+                    onclick="enterTVInterface()"
+                    class="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl bg-white/5 hover:bg-red-600/20 border border-white/15 hover:border-red-500/50 text-center transition-all"
+                >
+                    <svg class="w-7 h-7 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-sm font-bold text-white">Interface TV</span>
+                    <span class="text-[11px] text-neutral-300">Ouvrir le lecteur & serveurs</span>
+                </button>
+            </div>
+
+            <button
+                type="button"
+                onclick="logoutSession()"
+                class="w-full py-2.5 rounded-xl text-xs font-semibold text-neutral-400 hover:text-white bg-white/5 hover:bg-white/10 transition-colors"
+            >
+                Se déconnecter
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== PANNEAU D'ADMINISTRATION ==================== -->
+    <div id="admin-panel" class="hidden fixed inset-0 z-40 overflow-y-auto bg-[#07070a] text-white">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+            <!-- En-tête Admin -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-white/10">
+                <div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-400/30 mb-2">
+                        Administration Warisat
+                    </div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold">Gestion des Utilisateurs & Abonnements</h1>
+                    <p class="text-xs text-neutral-400 mt-0.5">Ajouter, renouveler, bloquer ou supprimer les sessions d'abonnement.</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2.5">
+                    <button
+                        type="button"
+                        onclick="enterTVInterface()"
+                        class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-500 text-white transition-colors"
+                    >
+                        Aller à l'Interface TV
+                    </button>
+                    <button
+                        type="button"
+                        onclick="logoutSession()"
+                        class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white/10 hover:bg-white/15 text-neutral-200 transition-colors"
+                    >
+                        Déconnexion
+                    </button>
+                </div>
+            </div>
+
+            <!-- Statistiques rapides -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4">
+                    <div class="text-xs text-neutral-400">Total comptes</div>
+                    <div id="stat-total-users" class="text-2xl font-extrabold mt-1">0</div>
+                </div>
+                <div class="rounded-2xl bg-emerald-500/[0.07] border border-emerald-500/25 p-4">
+                    <div class="text-xs text-emerald-300">Actifs</div>
+                    <div id="stat-active-users" class="text-2xl font-extrabold text-emerald-300 mt-1">0</div>
+                </div>
+                <div class="rounded-2xl bg-amber-500/[0.07] border border-amber-500/25 p-4">
+                    <div class="text-xs text-amber-300">Expirés</div>
+                    <div id="stat-expired-users" class="text-2xl font-extrabold text-amber-300 mt-1">0</div>
+                </div>
+                <div class="rounded-2xl bg-red-500/[0.07] border border-red-500/25 p-4">
+                    <div class="text-xs text-red-300">Bloqués</div>
+                    <div id="stat-blocked-users" class="text-2xl font-extrabold text-red-300 mt-1">0</div>
+                </div>
+            </div>
+
+            <!-- Formulaire d'ajout / renouvellement d'utilisateur -->
+            <form onsubmit="adminAddUser(event)" class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-4 gap-3.5 items-end">
+                <div class="space-y-1">
+                    <label for="admin-new-email" class="block text-xs font-semibold text-neutral-300">Email utilisateur</label>
+                    <input
+                        id="admin-new-email"
+                        type="email"
+                        required
+                        placeholder="client@exemple.com"
+                        class="w-full rounded-xl bg-black/60 border border-white/15 focus:border-amber-400 px-3.5 py-2.5 text-sm text-white outline-none"
+                    />
+                </div>
+
+                <div class="space-y-1">
+                    <label for="admin-new-pass" class="block text-xs font-semibold text-neutral-300">Mot de passe</label>
+                    <input
+                        id="admin-new-pass"
+                        type="password"
+                        required
+                        placeholder="Mot de passe"
+                        class="w-full rounded-xl bg-black/60 border border-white/15 focus:border-amber-400 px-3.5 py-2.5 text-sm text-white outline-none"
+                    />
+                </div>
+
+                <div class="space-y-1">
+                    <label for="admin-new-duration" class="block text-xs font-semibold text-neutral-300">Durée d'abonnement</label>
+                    <select
+                        id="admin-new-duration"
+                        class="w-full rounded-xl bg-black/60 border border-white/15 focus:border-amber-400 px-3.5 py-2.5 text-sm text-white outline-none"
+                    >
+                        <option value="3">3 jours</option>
+                        <option value="7">7 jours</option>
+                        <option value="15">15 jours</option>
+                        <option value="30" selected>1 mois (30 jours)</option>
+                        <option value="90">3 mois (90 jours)</option>
+                        <option value="180">6 mois (180 jours)</option>
+                        <option value="365">1 an (365 jours)</option>
+                    </select>
+                </div>
+
+                <button
+                    type="submit"
+                    class="w-full py-2.5 px-4 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-400 text-black transition-colors"
+                >
+                    Ajouter / Définir
+                </button>
+            </form>
+
+            <!-- Actions liste utilisateurs -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="text-base font-bold text-neutral-200">Liste des comptes utilisateurs</h2>
+                <button
+                    type="button"
+                    onclick="toggleAdminPasswordReveal()"
+                    class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 transition-colors"
+                >
+                    <span id="admin-reveal-pass-label">Afficher les empreintes sécurisées</span>
+                </button>
+            </div>
+
+            <!-- Conteneur dynamique de la liste -->
+            <div id="admin-users-list" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- ==================== INTERFACE SMART TV WARISAT ==================== -->
+    <div id="tv-interface" class="hidden fixed inset-0 z-30 bg-black overflow-hidden">
+        <!-- Zone de détection du survol supérieur -->
+        <div
+            id="top-hover-zone"
+            onmouseenter="handleTopZoneHover()"
+            class="fixed top-0 left-0 right-0 h-5 z-50"
+        ></div>
+
+        <!-- Barre de navigation supérieure Warisat -->
+        <header
+            id="tv-top-bar"
+            onmouseenter="resetInactivityTimer()"
+            class="fixed top-3 left-1/2 -translate-x-1/2 z-40 w-[96%] max-w-5xl rounded-2xl bg-black/75 hover:bg-black/88 backdrop-blur-xl border border-red-600/35 shadow-[0_12px_40px_rgba(0,0,0,0.85)] px-3 sm:px-5 py-2.5 transition-all duration-300"
+        >
+            <div class="flex flex-nowrap items-center justify-between gap-2 overflow-x-auto">
+                <!-- Marque Warisat -->
+                <div class="flex items-center gap-2 shrink-0 pr-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span>
+                    <span class="text-sm sm:text-base font-black tracking-wider bg-gradient-to-r from-amber-400 via-yellow-200 to-white bg-clip-text text-transparent">
+                        WARISAT
+                    </span>
+                </div>
+
+                <!-- Sélecteur de serveurs -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button
+                        type="button"
+                        id="srv-btn-KO"
+                        onclick="selectServer('KO')"
+                        class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-red-600 text-white shadow-md shadow-red-600/30"
+                    >
+                        Server KO
+                    </button>
+                    <button
+                        type="button"
+                        id="srv-btn-VA"
+                        onclick="selectServer('VA')"
+                        class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-white/10 hover:bg-white/20 text-neutral-200"
+                    >
+                        Server VA
+                    </button>
+                    <button
+                        type="button"
+                        id="srv-btn-HU"
+                        onclick="selectServer('HU')"
+                        class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-white/10 hover:bg-white/20 text-neutral-200"
+                    >
+                        Server HU
+                    </button>
+                </div>
+
+                <!-- Boutons utilitaires (VPN, Réglages TV, Admin si applicable, Masquer, Déconnexion) -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <button
+                        type="button"
+                        id="tv-vpn-btn"
+                        onclick="toggleVypnDrawer()"
+                        class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 border border-white/10 text-neutral-200 transition-colors"
+                    >
+                        VPN
+                    </button>
+                    <button
+                        type="button"
+                        onclick="toggleTVSettingsDrawer()"
+                        class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 border border-white/10 text-neutral-200 transition-colors"
+                    >
+                        Réglages TV
+                    </button>
+                    <button
+                        type="button"
+                        id="tv-admin-btn"
+                        onclick="enterAdminDashboard()"
+                        class="hidden px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-300 transition-colors"
+                    >
+                        Admin
+                    </button>
+                    <button
+                        type="button"
+                        onclick="hideTVMenu()"
+                        title="Masquer le menu"
+                        class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/15 text-neutral-300 transition-colors"
+                    >
+                        Masquer
+                    </button>
+                    <button
+                        type="button"
+                        onclick="logoutSession()"
+                        title="Se déconnecter"
+                        class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-red-600/20 hover:bg-red-600/35 border border-red-500/30 text-red-200 transition-colors"
+                    >
+                        Quitter
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tiroir VPN -->
+        <aside
+            id="vypn-drawer"
+            class="hidden fixed top-20 right-4 z-50 w-80 max-w-[92vw] rounded-2xl bg-neutral-950/92 backdrop-blur-xl border border-white/15 p-5 shadow-2xl space-y-4"
+        >
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-white">Tunnel VPN Warisat</h3>
+                    <p id="vypn-status-text" class="text-xs text-neutral-400">Statut : Désactivé</p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeVypnDrawer()"
+                    class="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div class="space-y-1.5">
+                <label for="vypn-region-select" class="block text-xs font-semibold text-neutral-300">Région de routage</label>
+                <select
+                    id="vypn-region-select"
+                    onchange="changeVypnRegion(this.value)"
+                    class="w-full rounded-xl bg-black/70 border border-white/15 px-3 py-2 text-xs text-white outline-none"
+                >
+                    <option value="Auto-Smart">Auto-Smart (Latence optimale)</option>
+                    <option value="Paris · FR">Paris · FR</option>
+                    <option value="Bruxelles · BE">Bruxelles · BE</option>
+                    <option value="Zurich · CH">Zurich · CH</option>
+                    <option value="Montréal · CA">Montréal · CA</option>
+                </select>
+            </div>
+
+            <button
+                type="button"
+                id="vypn-toggle-btn"
+                onclick="toggleVypnConnection()"
+                class="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white transition-colors"
+            >
+                Activer le VPN
+            </button>
+        </aside>
+
+        <!-- Tiroir Réglages TV -->
+        <aside
+            id="tv-settings-drawer"
+            class="hidden fixed top-20 right-4 z-50 w-80 max-w-[92vw] rounded-2xl bg-neutral-950/92 backdrop-blur-xl border border-white/15 p-5 shadow-2xl space-y-4"
+        >
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-white">Réglages TV</h3>
+                    <p class="text-xs text-neutral-400">Préférences d'affichage</p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeTVSettingsDrawer()"
+                    class="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-white/10"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <div class="space-y-1.5">
+                <label for="tv-default-server" class="block text-xs font-semibold text-neutral-300">Serveur au démarrage</label>
+                <select
+                    id="tv-default-server"
+                    onchange="updateTVSetting('defaultServer', this.value)"
+                    class="w-full rounded-xl bg-black/70 border border-white/15 px-3 py-2 text-xs text-white outline-none"
+                >
+                    <option value="KO">Server KO</option>
+                    <option value="VA">Server VA</option>
+                    <option value="HU">Server HU</option>
+                </select>
+            </div>
+
+            <label class="flex items-center justify-between gap-3 pt-1 cursor-pointer">
+                <span class="text-xs font-medium text-neutral-200">Masquage auto (15s)</span>
+                <input
+                    id="tv-auto-hide"
+                    type="checkbox"
+                    checked
+                    onchange="updateTVSetting('autoHide', this.checked)"
+                    class="w-4 h-4 accent-red-600 rounded"
+                />
+            </label>
+        </aside>
+
+        <!-- Cadre plein écran du flux TV -->
+        <iframe
+            id="tv-frame"
+            src="about:blank"
+            title="Flux Warisat TV"
+            allowfullscreen
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            class="w-full h-full border-0 bg-black block"
+        ></iframe>
+    </div>
+
+    <!-- Notification toast discrète -->
+    <div
+        id="warisat-toast"
+        class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-neutral-900/95 border border-white/15 text-xs font-semibold text-white shadow-2xl backdrop-blur-md"
+    ></div>
+
+    <script>
+        // Configuration des identifiants administrateur et clés de stockage
+        const ADMIN_EMAIL = 'billalli261@gmail.com';
+        const ADMIN_PASS = 'Moussavou1996**';
+
+        // Configuration Supabase (remplacez par l'URL et la clé anon de votre projet Supabase)
+        const SUPABASE_CONFIG = {
+            url: window.WARISAT_SUPABASE_URL || '',
+            anonKey: window.WARISAT_SUPABASE_ANON_KEY || ''
+        };
+
+        const STORAGE_KEYS = {
+            USERS: 'warisat_users_v1',
+            TV_SETTINGS: 'warisat_tv_settings_v1',
+            VPN_STATE: 'warisat_vpn_state_v1',
+            SUPABASE_CFG: 'warisat_supabase_cfg_v1'
+        };
+
+        const SERVERS = {
+            KO: 'https://kool.to',
+            VA: 'https://vavoo.to',
+            HU: 'https://huhu.to'
+        };
+
+        let supabaseClient = null;
+        let isSupabaseReady = false;
+        let cachedUsers = [];
+        let currentAuthMode = 'login';
+        let currentSession = null;
+        let activeServerKey = 'KO';
+        let menuHidden = false;
+        let inactivityTimer = null;
+        let toastTimer = null;
+        let revealAdminSecrets = false;
+
+        function loadStoredSupabaseConfig() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.SUPABASE_CFG);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed.url) SUPABASE_CONFIG.url = parsed.url.trim();
+                    if (parsed.anonKey) SUPABASE_CONFIG.anonKey = parsed.anonKey.trim();
+                }
+            } catch (e) {
+                // Ignorer si indisponible
+            }
+        }
+
+        function toggleSupabaseQuickModal() {
+            loadStoredSupabaseConfig();
+            const urlInput = document.getElementById('sb-project-url');
+            const keyInput = document.getElementById('sb-anon-key');
+            if (urlInput) urlInput.value = SUPABASE_CONFIG.url || '';
+            if (keyInput) keyInput.value = SUPABASE_CONFIG.anonKey || '';
+            document.getElementById('supabase-config-modal')?.classList.remove('hidden');
+        }
+
+        function closeSupabaseQuickModal() {
+            document.getElementById('supabase-config-modal')?.classList.add('hidden');
+        }
+
+        function saveSupabaseQuickConfig() {
+            const url = (document.getElementById('sb-project-url')?.value || '').trim();
+            const anonKey = (document.getElementById('sb-anon-key')?.value || '').trim();
+            SUPABASE_CONFIG.url = url;
+            SUPABASE_CONFIG.anonKey = anonKey;
+            try {
+                localStorage.setItem(STORAGE_KEYS.SUPABASE_CFG, JSON.stringify({ url, anonKey }));
+            } catch (e) {}
+            initSupabaseBackend();
+            closeSupabaseQuickModal();
+            showToast(isSupabaseReady ? 'Supabase connecté' : 'Configuration mise à jour');
+        }
+
+        function clearSupabaseQuickConfig() {
+            SUPABASE_CONFIG.url = '';
+            SUPABASE_CONFIG.anonKey = '';
+            try {
+                localStorage.removeItem(STORAGE_KEYS.SUPABASE_CFG);
+            } catch (e) {}
+            initSupabaseBackend();
+            closeSupabaseQuickModal();
+            showToast('Mode local activé');
+        }
+
+        // Initialise la connexion Supabase si les identifiants sont renseignés
+        function initSupabaseBackend() {
+            loadStoredSupabaseConfig();
+            const badge = document.getElementById('backend-mode-badge');
+            try {
+                if (
+                    SUPABASE_CONFIG.url &&
+                    SUPABASE_CONFIG.anonKey &&
+                    !SUPABASE_CONFIG.url.includes('VOTRE_PROJET') &&
+                    window.supabase &&
+                    typeof window.supabase.createClient === 'function'
+                ) {
+                    supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+                    isSupabaseReady = true;
+                    if (badge) {
+                        badge.textContent = 'Supabase Connecté';
+                        badge.className = 'text-emerald-400 font-semibold';
+                    }
+                    return;
+                }
+            } catch (err) {
+                console.warn('Repli sur le stockage local Warisat:', err);
+            }
+            isSupabaseReady = false;
+            if (badge) {
+                badge.textContent = 'Mode Local / Prêt Supabase';
+                badge.className = 'text-amber-300/90';
+            }
+        }
+
+        // Normalise une ligne utilisateur (compatible Supabase snake_case et local camelCase)
+        function normalizeUserRecord(row) {
+            if (!row) return null;
+            const rawExpires = row.expires_at !== undefined ? row.expires_at : row.expiresAt;
+            const expiresMs = typeof rawExpires === 'number'
+                ? rawExpires
+                : rawExpires
+                    ? new Date(rawExpires).getTime()
+                    : 0;
+            const rawCreated = row.created_at !== undefined ? row.created_at : row.createdAt;
+            const createdMs = typeof rawCreated === 'number'
+                ? rawCreated
+                : rawCreated
+                    ? new Date(rawCreated).getTime()
+                    : Date.now();
+
+            return {
+                id: String(row.id),
+                email: String(row.email || '').trim().toLowerCase(),
+                passwordHash: row.password_hash || row.passwordHash || '',
+                password: row.password || '',
+                blocked: Boolean(row.blocked),
+                expiresAt: expiresMs,
+                createdAt: createdMs
+            };
+        }
+
+        // Affichage d'une notification courte
+        function showToast(message) {
+            const toast = document.getElementById('warisat-toast');
+            if (!toast) return;
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2800);
+        }
+
+        // Bascule entre Connexion et Création de compte
+        function setAuthMode(mode) {
+            currentAuthMode = mode === 'register' ? 'register' : 'login';
+            hideAuthAlert();
+
+            const tabLogin = document.getElementById('tab-login');
+            const tabRegister = document.getElementById('tab-register');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const passInput = document.getElementById('auth-password');
+
+            if (currentAuthMode === 'register') {
+                tabRegister?.classList.add('bg-red-600', 'text-white', 'shadow-lg', 'shadow-red-600/30');
+                tabRegister?.classList.remove('text-neutral-300', 'hover:text-white', 'hover:bg-white/5');
+
+                tabLogin?.classList.remove('bg-red-600', 'text-white', 'shadow-lg', 'shadow-red-600/30');
+                tabLogin?.classList.add('text-neutral-300', 'hover:text-white', 'hover:bg-white/5');
+
+                if (submitBtn) submitBtn.textContent = 'Créer mon compte';
+                if (passInput) passInput.setAttribute('autocomplete', 'new-password');
+            } else {
+                tabLogin?.classList.add('bg-red-600', 'text-white', 'shadow-lg', 'shadow-red-600/30');
+                tabLogin?.classList.remove('text-neutral-300', 'hover:text-white', 'hover:bg-white/5');
+
+                tabRegister?.classList.remove('bg-red-600', 'text-white', 'shadow-lg', 'shadow-red-600/30');
+                tabRegister?.classList.add('text-neutral-300', 'hover:text-white', 'hover:bg-white/5');
+
+                if (submitBtn) submitBtn.textContent = 'Accéder à la session';
+                if (passInput) passInput.setAttribute('autocomplete', 'current-password');
+            }
+        }
+
+        function showAuthAlert(message) {
+            const alertBox = document.getElementById('auth-alert');
+            if (!alertBox) return;
+            alertBox.textContent = message;
+            alertBox.classList.remove('hidden');
+        }
+
+        function hideAuthAlert() {
+            const alertBox = document.getElementById('auth-alert');
+            if (!alertBox) return;
+            alertBox.textContent = '';
+            alertBox.classList.add('hidden');
+        }
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('auth-password');
+            if (!input) return;
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        // Hachage SHA-256 salé côté client avec repli déterministe
+        async function hashSecret(plainText) {
+            try {
+                if (window.crypto && window.crypto.subtle) {
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(`warisat_salt_v1:${plainText}`);
+                    const digest = await window.crypto.subtle.digest('SHA-256', data);
+                    const bytes = Array.from(new Uint8Array(digest));
+                    return 'sha256_' + bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+                }
+            } catch (err) {
+                // Repli si Web Crypto est indisponible
+            }
+            let hash = 2166136261;
+            const salted = `warisat_salt_v1:${plainText}`;
+            for (let i = 0; i < salted.length; i++) {
+                hash ^= salted.charCodeAt(i);
+                hash = Math.imul(hash, 16777619);
+            }
+            return `fb_${(hash >>> 0).toString(16).padStart(8, '0')}`;
+        }
+
+        function getUsersDB() {
+            if (isSupabaseReady && Array.isArray(cachedUsers)) {
+                return cachedUsers;
+            }
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.USERS);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed.map(normalizeUserRecord).filter(Boolean) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveUsersDB(users) {
+            const normalized = (Array.isArray(users) ? users : []).map(normalizeUserRecord).filter(Boolean);
+            cachedUsers = normalized;
+            try {
+                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(normalized));
+            } catch (e) {
+                showToast('Erreur de sauvegarde locale');
+            }
+        }
+
+        // Charge tous les utilisateurs depuis Supabase en administration
+        async function syncUsersFromSupabase() {
+            if (!isSupabaseReady || !supabaseClient) {
+                return getUsersDB();
+            }
+            try {
+                const { data, error } = await supabaseClient
+                    .from('warisat_users')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                const list = (data || []).map(normalizeUserRecord).filter(Boolean);
+                saveUsersDB(list);
+                return list;
+            } catch (err) {
+                showToast('Synchronisation Supabase impossible, cache local utilisé');
+                return getUsersDB();
+            }
+        }
+
+        // Recherche un utilisateur par email dans Supabase ou le cache local
+        async function findUserByEmail(email) {
+            const normalizedEmail = email.trim().toLowerCase();
+            if (isSupabaseReady && supabaseClient) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('warisat_users')
+                        .select('*')
+                        .eq('email', normalizedEmail)
+                        .maybeSingle();
+                    if (error) throw error;
+                    if (data) {
+                        const user = normalizeUserRecord(data);
+                        const currentList = getUsersDB();
+                        const idx = currentList.findIndex(u => u.email === normalizedEmail);
+                        if (idx >= 0) currentList[idx] = user;
+                        else currentList.push(user);
+                        saveUsersDB(currentList);
+                        return user;
+                    }
+                    return null;
+                } catch (err) {
+                    // Repli sur le cache local si le réseau ou la table n'est pas encore prête
+                }
+            }
+            return getUsersDB().find(u => u.email.toLowerCase() === normalizedEmail) || null;
+        }
+
+        // Crée ou met à jour un utilisateur dans Supabase et localement
+        async function persistUserRecord(userObj, isNew = false) {
+            const normalized = normalizeUserRecord(userObj);
+            if (isSupabaseReady && supabaseClient) {
+                const payload = {
+                    id: normalized.id,
+                    email: normalized.email,
+                    password_hash: normalized.passwordHash,
+                    blocked: normalized.blocked,
+                    expires_at: new Date(normalized.expiresAt).toISOString(),
+                    created_at: new Date(normalized.createdAt).toISOString()
+                };
+                try {
+                    if (isNew) {
+                        const { error } = await supabaseClient.from('warisat_users').insert(payload);
+                        if (error) throw error;
+                    } else {
+                        const { error } = await supabaseClient
+                            .from('warisat_users')
+                            .update(payload)
+                            .eq('id', normalized.id);
+                        if (error) throw error;
+                    }
+                } catch (err) {
+                    showToast('Sauvegarde Supabase partielle · Copie locale conservée');
+                }
+            }
+
+            const users = getUsersDB();
+            const idx = users.findIndex(u => u.id === normalized.id || u.email === normalized.email);
+            if (idx >= 0) users[idx] = normalized;
+            else users.push(normalized);
+            saveUsersDB(users);
+            return normalized;
+        }
+
+        async function removeUserRecord(userId) {
+            if (isSupabaseReady && supabaseClient) {
+                try {
+                    const { error } = await supabaseClient
+                        .from('warisat_users')
+                        .delete()
+                        .eq('id', userId);
+                    if (error) throw error;
+                } catch (err) {
+                    showToast('Suppression Supabase différée · Retiré localement');
+                }
+            }
+            const users = getUsersDB().filter(u => u.id !== userId);
+            saveUsersDB(users);
+        }
+
+        // Traitement du formulaire de connexion / création de compte
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            hideAuthAlert();
+
+            const email = (document.getElementById('auth-email')?.value || '').trim().toLowerCase();
+            const password = document.getElementById('auth-password')?.value || '';
+            if (!email || !password) return;
+
+            // Vérification du compte Administrateur
+            if (email === ADMIN_EMAIL.toLowerCase()) {
+                if (currentAuthMode === 'register') {
+                    showAuthAlert('Ce compte administrateur existe déjà. Veuillez vous connecter.');
+                    return;
+                }
+                if (password === ADMIN_PASS) {
+                    currentSession = { email: ADMIN_EMAIL, isAdmin: true, expiresAt: null };
+                    document.getElementById('auth-screen')?.classList.add('hidden');
+                    const choiceEmail = document.getElementById('admin-choice-email');
+                    if (choiceEmail) choiceEmail.textContent = ADMIN_EMAIL;
+                    document.getElementById('admin-choice-modal')?.classList.remove('hidden');
+                    return;
+                } else {
+                    showAuthAlert('Mot de passe administrateur incorrect.');
+                    return;
+                }
+            }
+
+            const passwordHash = await hashSecret(password);
+
+            if (currentAuthMode === 'register') {
+                const existing = await findUserByEmail(email);
+                if (existing) {
+                    showAuthAlert('Un compte existe déjà avec cet email.');
+                    return;
+                }
+                const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+                const newUser = await persistUserRecord({
+                    id: 'usr_' + Date.now(),
+                    email,
+                    passwordHash,
+                    blocked: false,
+                    expiresAt,
+                    createdAt: Date.now()
+                }, true);
+                currentSession = { ...newUser, isAdmin: false };
+                enterTVInterface();
+                showToast('Compte créé · Session active (7 jours)');
+                return;
+            }
+
+            // Connexion utilisateur standard
+            const user = await findUserByEmail(email);
+            const matchesSecret = user && (user.passwordHash === passwordHash || user.password === password);
+            if (!user || !matchesSecret) {
+                showAuthAlert('Email ou mot de passe incorrect.');
+                return;
+            }
+            if (user.blocked) {
+                showAuthAlert('Votre compte a été bloqué par l’administrateur.');
+                return;
+            }
+            if (!user.expiresAt || Date.now() > user.expiresAt) {
+                showAuthAlert('Votre abonnement a expiré. Contactez l’administrateur pour le renouveler.');
+                return;
+            }
+
+            if (!user.passwordHash) {
+                await persistUserRecord({
+                    ...user,
+                    passwordHash,
+                    password: ''
+                }, false);
+            }
+
+            currentSession = { ...user, isAdmin: false };
+            enterTVInterface();
+        }
+
+        function isSessionValid() {
+            if (!currentSession) return false;
+            if (currentSession.isAdmin) {
+                return currentSession.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            }
+            const freshUsers = getUsersDB();
+            const liveUser = freshUsers.find(
+                u => u.id === currentSession.id || u.email.toLowerCase() === currentSession.email.toLowerCase()
+            );
+            if (!liveUser || liveUser.blocked) return false;
+            if (!liveUser.expiresAt || Date.now() > liveUser.expiresAt) return false;
+            currentSession = { ...liveUser, isAdmin: false };
+            return true;
+        }
+
+        async function enterAdminDashboard() {
+            if (!currentSession || !currentSession.isAdmin) {
+                showToast('Accès réservé à l’administrateur');
+                return;
+            }
+            document.getElementById('admin-choice-modal')?.classList.add('hidden');
+            document.getElementById('tv-interface')?.classList.add('hidden');
+            document.getElementById('auth-screen')?.classList.add('hidden');
+            document.getElementById('admin-panel')?.classList.remove('hidden');
+            renderAdminUsers();
+            if (isSupabaseReady) {
+                await syncUsersFromSupabase();
+                renderAdminUsers();
+            }
+        }
+
+        function saveUsersDB(users) {
+            try {
+                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+            } catch (e) {
+                showToast('Erreur de sauvegarde locale');
+            }
+        }
+
+        // Traitement du formulaire de connexion / création de compte
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            hideAuthAlert();
+
+            const email = (document.getElementById('auth-email')?.value || '').trim().toLowerCase();
+            const password = document.getElementById('auth-password')?.value || '';
+            if (!email || !password) return;
+
+            // Vérification du compte Administrateur
+            if (email === ADMIN_EMAIL.toLowerCase()) {
+                if (currentAuthMode === 'register') {
+                    showAuthAlert('Ce compte administrateur existe déjà. Veuillez vous connecter.');
+                    return;
+                }
+                if (password === ADMIN_PASS) {
+                    currentSession = { email: ADMIN_EMAIL, isAdmin: true, expiresAt: null };
+                    document.getElementById('auth-screen')?.classList.add('hidden');
+                    const choiceEmail = document.getElementById('admin-choice-email');
+                    if (choiceEmail) choiceEmail.textContent = ADMIN_EMAIL;
+                    document.getElementById('admin-choice-modal')?.classList.remove('hidden');
+                    return;
+                } else {
+                    showAuthAlert('Mot de passe administrateur incorrect.');
+                    return;
+                }
+            }
+
+            const users = getUsersDB();
+            const passwordHash = await hashSecret(password);
+
+            if (currentAuthMode === 'register') {
+                if (users.some(u => u.email.toLowerCase() === email)) {
+                    showAuthAlert('Un compte existe déjà avec cet email.');
+                    return;
+                }
+                const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+                const newUser = {
+                    id: 'usr_' + Date.now(),
+                    email,
+                    passwordHash,
+                    blocked: false,
+                    expiresAt,
+                    createdAt: Date.now()
+                };
+                users.push(newUser);
+                saveUsersDB(users);
+                currentSession = { ...newUser, isAdmin: false };
+                enterTVInterface();
+                showToast('Compte créé · Session active (7 jours)');
+                return;
+            }
+
+            // Connexion utilisateur standard
+            const user = users.find(u => u.email.toLowerCase() === email);
+            const matchesSecret = user && (user.passwordHash === passwordHash || user.password === password);
+            if (!user || !matchesSecret) {
+                showAuthAlert('Email ou mot de passe incorrect.');
+                return;
+            }
+            if (user.blocked) {
+                showAuthAlert('Votre compte a été bloqué par l’administrateur.');
+                return;
+            }
+            if (!user.expiresAt || Date.now() > user.expiresAt) {
+                showAuthAlert('Votre abonnement a expiré. Contactez l’administrateur pour le renouveler.');
+                return;
+            }
+
+            if (!user.passwordHash) {
+                user.passwordHash = passwordHash;
+                delete user.password;
+                saveUsersDB(users);
+            }
+
+            currentSession = { ...user, isAdmin: false };
+            enterTVInterface();
+        }
+
+        function isSessionValid() {
+            if (!currentSession) return false;
+            if (currentSession.isAdmin) {
+                return currentSession.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            }
+            const freshUsers = getUsersDB();
+            const liveUser = freshUsers.find(
+                u => u.id === currentSession.id || u.email.toLowerCase() === currentSession.email.toLowerCase()
+            );
+            if (!liveUser || liveUser.blocked) return false;
+            if (!liveUser.expiresAt || Date.now() > liveUser.expiresAt) return false;
+            currentSession = { ...liveUser, isAdmin: false };
+            return true;
+        }
+
+        function enterAdminDashboard() {
+            if (!currentSession || !currentSession.isAdmin) {
+                showToast('Accès réservé à l’administrateur');
+                return;
+            }
+            document.getElementById('admin-choice-modal')?.classList.add('hidden');
+            document.getElementById('tv-interface')?.classList.add('hidden');
+            document.getElementById('auth-screen')?.classList.add('hidden');
+            document.getElementById('admin-panel')?.classList.remove('hidden');
+            renderAdminUsers();
+        }
+
+        function enterTVInterface() {
+            if (!isSessionValid()) {
+                logoutSession();
+                showAuthAlert('Session expirée ou non autorisée.');
+                return;
+            }
+            document.getElementById('auth-screen')?.classList.add('hidden');
+            document.getElementById('admin-choice-modal')?.classList.add('hidden');
+            document.getElementById('admin-panel')?.classList.add('hidden');
+            document.getElementById('tv-interface')?.classList.remove('hidden');
+
+            const adminBtn = document.getElementById('tv-admin-btn');
+            if (adminBtn) {
+                adminBtn.classList.toggle('hidden', !currentSession.isAdmin);
+            }
+
+            const savedSettings = getTVSettings();
+            const targetServer = SERVERS[activeServerKey] ? activeServerKey : savedSettings.defaultServer;
+            selectServer(targetServer, true);
+            showTVMenu(true);
+        }
+
+        function logoutSession() {
+            currentSession = null;
+            clearTimeout(inactivityTimer);
+            closeVypnDrawer();
+            closeTVSettingsDrawer();
+
+            const frame = document.getElementById('tv-frame');
+            if (frame) frame.src = 'about:blank';
+
+            const passInput = document.getElementById('auth-password');
+            if (passInput) passInput.value = '';
+
+            document.getElementById('admin-panel')?.classList.add('hidden');
+            document.getElementById('admin-choice-modal')?.classList.add('hidden');
+            document.getElementById('tv-interface')?.classList.add('hidden');
+            document.getElementById('auth-screen')?.classList.remove('hidden');
+            setAuthMode('login');
+        }
+
+        // ==================== FONCTIONS ADMINISTRATEUR ====================
+        async function adminAddUser(e) {
+            e.preventDefault();
+            if (!currentSession || !currentSession.isAdmin) return;
+
+            const emailInput = document.getElementById('admin-new-email');
+            const passInput = document.getElementById('admin-new-pass');
+            const durSelect = document.getElementById('admin-new-duration');
+
+            const email = (emailInput?.value || '').trim().toLowerCase();
+            const password = passInput?.value || '';
+            const days = parseInt(durSelect?.value || '30', 10) || 30;
+
+            if (!email || !password || email === ADMIN_EMAIL.toLowerCase()) {
+                showToast('Email invalide ou réservé');
+                return;
+            }
+
+            const passwordHash = await hashSecret(password);
+            const existing = await findUserByEmail(email);
+            const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
+
+            if (existing) {
+                await persistUserRecord({
+                    ...existing,
+                    passwordHash,
+                    password: '',
+                    expiresAt,
+                    blocked: false
+                }, false);
+                showToast(`Abonnement mis à jour (+${days} j)`);
+            } else {
+                await persistUserRecord({
+                    id: 'usr_' + Date.now(),
+                    email,
+                    passwordHash,
+                    blocked: false,
+                    expiresAt,
+                    createdAt: Date.now()
+                }, true);
+                showToast(`Utilisateur ajouté (+${days} j)`);
+            }
+
+            if (emailInput) emailInput.value = '';
+            if (passInput) passInput.value = '';
+            renderAdminUsers();
+        }
+
+        async function adminRenewUser(userId, days) {
+            if (!currentSession || !currentSession.isAdmin) return;
+            const users = getUsersDB();
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            const baseTime = user.expiresAt && user.expiresAt > Date.now() ? user.expiresAt : Date.now();
+            await persistUserRecord({
+                ...user,
+                expiresAt: baseTime + days * 24 * 60 * 60 * 1000,
+                blocked: false
+            }, false);
+            showToast(`Session prolongée de ${days} jours`);
+            renderAdminUsers();
+        }
+
+        async function adminToggleBlock(userId) {
+            if (!currentSession || !currentSession.isAdmin) return;
+            const users = getUsersDB();
+            const user = users.find(u => u.id === userId);
+            if (!user) return;
+
+            const nextBlocked = !user.blocked;
+            await persistUserRecord({
+                ...user,
+                blocked: nextBlocked
+            }, false);
+            showToast(nextBlocked ? 'Utilisateur bloqué' : 'Utilisateur débloqué');
+            renderAdminUsers();
+        }
+
+        async function adminDeleteUser(userId) {
+            if (!currentSession || !currentSession.isAdmin) return;
+            await removeUserRecord(userId);
+            showToast('Utilisateur supprimé');
+            renderAdminUsers();
+        }
+
+        function toggleAdminPasswordReveal() {
+            revealAdminSecrets = !revealAdminSecrets;
+            const label = document.getElementById('admin-reveal-pass-label');
+            if (label) {
+                label.textContent = revealAdminSecrets
+                    ? 'Masquer les empreintes sécurisées'
+                    : 'Afficher les empreintes sécurisées';
+            }
+            renderAdminUsers();
+        }
+
+        function formatRemainingDuration(expiresAt) {
+            const diff = (expiresAt || 0) - Date.now();
+            if (diff <= 0) return 'Expiré';
+            const days = Math.ceil(diff / (24 * 60 * 60 * 1000));
+            if (days === 1) return '1 jour restant';
+            return `${days} jours restants`;
+        }
+
+        function renderAdminUsers() {
+            const listEl = document.getElementById('admin-users-list');
+            if (!listEl) return;
+
+            const users = getUsersDB();
+            const now = Date.now();
+
+            let activeCount = 0;
+            let expiredCount = 0;
+            let blockedCount = 0;
+
+            users.forEach(u => {
+                if (u.blocked) {
+                    blockedCount++;
+                } else if (!u.expiresAt || now > u.expiresAt) {
+                    expiredCount++;
+                } else {
+                    activeCount++;
+                }
+            });
+
+            const setText = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(val);
+            };
+            setText('stat-total-users', users.length);
+            setText('stat-active-users', activeCount);
+            setText('stat-expired-users', expiredCount);
+            setText('stat-blocked-users', blockedCount);
+
+            if (users.length === 0) {
+                listEl.innerHTML = `
+                    <div class="rounded-2xl bg-white/[0.03] border border-white/10 p-8 text-center text-sm text-neutral-400">
+                        Aucun compte utilisateur enregistré pour le moment.
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = users.map(u => {
+                const isExpired = !u.expiresAt || now > u.expiresAt;
+                const statusBadge = u.blocked
+                    ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-500/20 text-red-300 border border-red-500/35">Bloqué</span>`
+                    : isExpired
+                        ? `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/35">Expiré</span>`
+                        : `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">${formatRemainingDuration(u.expiresAt)}</span>`;
+
+                const expDateStr = u.expiresAt
+                    ? new Date(u.expiresAt).toLocaleDateString('fr-FR')
+                    : '—';
+
+                return `
+                    <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div class="space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm font-bold text-white">${u.email}</span>
+                                ${statusBadge}
+                                <span class="text-[11px] text-neutral-400">Échéance : ${expDateStr}</span>
+                            </div>
+                            <div class="text-[11px] text-neutral-500">
+                                Sécurité : <span class="text-neutral-300 font-mono break-all">${revealAdminSecrets ? (u.passwordHash || '••••') : '•••••••••••• (SHA-256)'}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onclick="adminRenewUser('${u.id}', 7)"
+                                class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-neutral-200 transition-colors"
+                            >
+                                +7j
+                            </button>
+                            <button
+                                type="button"
+                                onclick="adminRenewUser('${u.id}', 30)"
+                                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition-colors"
+                            >
+                                +1 mois
+                            </button>
+                            <button
+                                type="button"
+                                onclick="adminRenewUser('${u.id}', 365)"
+                                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-colors"
+                            >
+                                +1 an
+                            </button>
+                            <button
+                                type="button"
+                                onclick="adminToggleBlock('${u.id}')"
+                                class="px-3 py-1.5 rounded-xl text-xs font-semibold ${u.blocked ? 'bg-emerald-600/25 text-emerald-200 hover:bg-emerald-600/35' : 'bg-amber-600/25 text-amber-200 hover:bg-amber-600/35'} transition-colors"
+                            >
+                                ${u.blocked ? 'Débloquer' : 'Bloquer'}
+                            </button>
+                            <button
+                                type="button"
+                                onclick="adminDeleteUser('${u.id}')"
+                                class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-600/25 hover:bg-red-600/40 text-red-200 transition-colors"
+                            >
+                                Supprimer
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==================== FONCTIONS INTERFACE TV ====================
+        function getTVSettings() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.TV_SETTINGS);
+                const parsed = raw ? JSON.parse(raw) : {};
+                return {
+                    defaultServer: SERVERS[parsed.defaultServer] ? parsed.defaultServer : 'KO',
+                    autoHide: typeof parsed.autoHide === 'boolean' ? parsed.autoHide : true
+                };
+            } catch (e) {
+                return { defaultServer: 'KO', autoHide: true };
+            }
+        }
+
+        function saveTVSettings(settings) {
+            try {
+                localStorage.setItem(STORAGE_KEYS.TV_SETTINGS, JSON.stringify(settings));
+            } catch (e) {
+                // Ignorer si indisponible
+            }
+        }
+
+        function applyTVSettingsToUI(settings) {
+            const defSel = document.getElementById('tv-default-server');
+            if (defSel) defSel.value = settings.defaultServer;
+
+            const autoHideChk = document.getElementById('tv-auto-hide');
+            if (autoHideChk) autoHideChk.checked = settings.autoHide;
+        }
+
+        function updateTVSetting(key, value) {
+            const current = getTVSettings();
+            current[key] = value;
+            saveTVSettings(current);
+            applyTVSettingsToUI(current);
+            if (key === 'autoHide') {
+                if (value && !menuHidden) {
+                    resetInactivityTimer();
+                } else {
+                    clearTimeout(inactivityTimer);
+                }
+            }
+            showToast('Réglage TV enregistré');
+        }
+
+        function selectServer(serverKey, silent = false) {
+            if (!SERVERS[serverKey]) return;
+            activeServerKey = serverKey;
+
+            ['KO', 'VA', 'HU'].forEach(k => {
+                const btn = document.getElementById(`srv-btn-${k}`);
+                if (!btn) return;
+                if (k === serverKey) {
+                    btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-red-600 text-white shadow-md shadow-red-600/30';
+                } else {
+                    btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-white/10 hover:bg-white/20 text-neutral-200';
+                }
+            });
+
+            const frame = document.getElementById('tv-frame');
+            if (frame && !document.getElementById('tv-interface')?.classList.contains('hidden')) {
+                frame.src = SERVERS[serverKey];
+            }
+
+            if (!silent) {
+                showToast(`Server ${serverKey} sélectionné`);
+            }
+            resetInactivityTimer();
+        }
+
+        function showTVMenu(startTimer = true) {
+            const bar = document.getElementById('tv-top-bar');
+            if (!bar) return;
+            menuHidden = false;
+            bar.classList.remove('opacity-0', '-translate-y-24', 'pointer-events-none');
+            bar.classList.add('opacity-100', 'translate-y-0');
+            if (startTimer) {
+                resetInactivityTimer();
+            }
+        }
+
+        function hideTVMenu() {
+            const bar = document.getElementById('tv-top-bar');
+            if (!bar) return;
+            clearTimeout(inactivityTimer);
+            closeVypnDrawer();
+            closeTVSettingsDrawer();
+            menuHidden = true;
+            bar.classList.remove('opacity-100', 'translate-y-0');
+            bar.classList.add('opacity-0', '-translate-y-24', 'pointer-events-none');
+        }
+
+        function handleTopZoneHover() {
+            if (menuHidden) {
+                showTVMenu(true);
+            } else {
+                resetInactivityTimer();
+            }
+        }
+
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            const settings = getTVSettings();
+            if (!settings.autoHide) return;
+            if (document.getElementById('tv-interface')?.classList.contains('hidden')) return;
+            if (menuHidden) return;
+
+            inactivityTimer = setTimeout(() => {
+                hideTVMenu();
+            }, 15000);
+        }
+
+        // ==================== TIROIR VPN ====================
+        function getVpnState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.VPN_STATE);
+                const parsed = raw ? JSON.parse(raw) : {};
+                return {
+                    enabled: Boolean(parsed.enabled),
+                    region: parsed.region || 'Auto-Smart'
+                };
+            } catch (e) {
+                return { enabled: false, region: 'Auto-Smart' };
+            }
+        }
+
+        function updateVypnUI() {
+            const state = getVpnState();
+            const statusEl = document.getElementById('vypn-status-text');
+            const btnEl = document.getElementById('vypn-toggle-btn');
+            const topBtn = document.getElementById('tv-vpn-btn');
+            const regionSel = document.getElementById('vypn-region-select');
+
+            if (regionSel) regionSel.value = state.region;
+            if (statusEl) {
+                statusEl.textContent = state.enabled
+                    ? `Actif · ${state.region}`
+                    : 'Statut : Désactivé';
+            }
+            if (btnEl) {
+                btnEl.textContent = state.enabled ? 'Désactiver le VPN' : 'Activer le VPN';
+                btnEl.className = state.enabled
+                    ? 'w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors'
+                    : 'w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white transition-colors';
+            }
+            if (topBtn) {
+                topBtn.className = state.enabled
+                    ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600/25 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-300 transition-colors'
+                    : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 border border-white/10 text-neutral-200 transition-colors';
+            }
+        }
+
+        function toggleVypnDrawer() {
+            closeTVSettingsDrawer();
+            const drawer = document.getElementById('vypn-drawer');
+            if (!drawer) return;
+            drawer.classList.toggle('hidden');
+            resetInactivityTimer();
+        }
+
+        function closeVypnDrawer() {
+            document.getElementById('vypn-drawer')?.classList.add('hidden');
+        }
+
+        function toggleVypnConnection() {
+            const state = getVpnState();
+            state.enabled = !state.enabled;
+            try {
+                localStorage.setItem(STORAGE_KEYS.VPN_STATE, JSON.stringify(state));
+            } catch (e) {}
+            updateVypnUI();
+            showToast(state.enabled ? `VPN activé (${state.region})` : 'VPN désactivé');
+            resetInactivityTimer();
+        }
+
+        function changeVypnRegion(region) {
+            const state = getVpnState();
+            state.region = region;
+            try {
+                localStorage.setItem(STORAGE_KEYS.VPN_STATE, JSON.stringify(state));
+            } catch (e) {}
+            updateVypnUI();
+            if (state.enabled) {
+                showToast(`Routage VPN : ${region}`);
+            }
+            resetInactivityTimer();
+        }
+
+        // ==================== TIROIR RÉGLAGES TV ====================
+        function toggleTVSettingsDrawer() {
+            closeVypnDrawer();
+            const drawer = document.getElementById('tv-settings-drawer');
+            if (!drawer) return;
+            drawer.classList.toggle('hidden');
+            resetInactivityTimer();
+        }
+
+        function closeTVSettingsDrawer() {
+            document.getElementById('tv-settings-drawer')?.classList.add('hidden');
+        }
+
+        // ==================== INITIALISATION PRINCIPALE ====================
+        function initWarisatTV() {
+            initSupabaseBackend();
+            cachedUsers = getUsersDB();
+            currentSession = null;
+            document.getElementById('admin-panel')?.classList.add('hidden');
+            document.getElementById('admin-choice-modal')?.classList.add('hidden');
+            document.getElementById('tv-interface')?.classList.add('hidden');
+            document.getElementById('auth-screen')?.classList.remove('hidden');
+            setAuthMode('login');
+
+            closeVypnDrawer();
+            closeTVSettingsDrawer();
+
+            const savedSettings = getTVSettings();
+            applyTVSettingsToUI(savedSettings);
+            updateVypnUI();
+
+            const defaultServer = SERVERS[savedSettings.defaultServer] ? savedSettings.defaultServer : 'KO';
+            selectServer(defaultServer, true);
+
+            window.addEventListener('pageshow', () => {
+                if (!currentSession) {
+                    document.getElementById('auth-screen')?.classList.remove('hidden');
+                }
+            });
+
+            const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel'];
+            activityEvents.forEach(evtName => {
+                document.addEventListener(evtName, () => {
+                    if (!menuHidden && !document.getElementById('tv-interface')?.classList.contains('hidden')) {
+                        resetInactivityTimer();
+                    }
+                }, { passive: true });
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (document.getElementById('tv-interface')?.classList.contains('hidden')) return;
+
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    showTVMenu(true);
+                } else if (e.key === 'Escape') {
+                    if (!document.getElementById('tv-settings-drawer')?.classList.contains('hidden')) {
+                        closeTVSettingsDrawer();
+                    } else if (!document.getElementById('vypn-drawer')?.classList.contains('hidden')) {
+                        closeVypnDrawer();
+                    } else if (menuHidden) {
+                        showTVMenu(true);
+                    } else {
+                        hideTVMenu();
+                    }
+                } else if (!menuHidden) {
+                    const order = ['KO', 'VA', 'HU'];
+                    const idx = order.indexOf(activeServerKey);
+                    if (e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        selectServer(order[(idx + 1) % order.length]);
+                    } else if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        selectServer(order[(idx - 1 + order.length) % order.length]);
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', initWarisatTV);
+    </script>
+</body>
+</html>
