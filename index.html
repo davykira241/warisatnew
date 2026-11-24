@@ -108,11 +108,49 @@
         }
 
         #auth-screen .auth-card {
-            background: rgba(12, 13, 16, 0.72);
-            border: 1px solid rgba(255, 255, 255, 0.10);
-            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.58);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
+            isolation: isolate;
+            background: rgba(8, 9, 12, 0.38);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+            backdrop-filter: blur(18px) saturate(125%);
+            -webkit-backdrop-filter: blur(18px) saturate(125%);
+        }
+
+        #auth-screen .auth-card::before {
+            content: "";
+            position: absolute;
+            z-index: 0;
+            inset: -1px;
+            padding: 1.5px;
+            border-radius: inherit;
+            background: conic-gradient(
+                from 0deg,
+                transparent 0deg 65deg,
+                rgba(220, 38, 38, 0.9) 115deg,
+                rgba(251, 191, 36, 0.95) 155deg,
+                rgba(239, 68, 68, 0.88) 195deg,
+                transparent 245deg 310deg,
+                rgba(245, 158, 11, 0.72) 340deg,
+                transparent 360deg
+            );
+            filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.34));
+            animation: neonSpin 7s linear infinite;
+            pointer-events: none;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+        }
+
+        #auth-screen .auth-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #auth-screen .auth-card::before {
+                animation: none;
+            }
         }
 
         #auth-screen .auth-tabs {
@@ -166,9 +204,9 @@
         <div class="fixed inset-0 overflow-hidden pointer-events-none">
             <img
                 id="auth-bg-image"
-                src=""
-                alt=""
-                class="w-full h-full object-cover opacity-50 hidden"
+                src="image/fond.png"
+                alt="Fond Warisat"
+                class="w-full h-full object-cover opacity-50"
             />
             <div id="auth-bg-overlay" class="fixed inset-0"></div>
         </div>
@@ -231,11 +269,11 @@
                 <div class="flex flex-col items-center text-center space-y-3">
                     <img
                         id="auth-brand-logo"
-                        src=""
+                        src="image/logo.png"
                         alt="Logo Warisat"
-                        class="w-full max-w-[190px] max-h-24 object-contain rounded-lg hidden"
+                        class="w-full max-w-[190px] max-h-24 object-contain rounded-lg"
                     />
-                    <div id="auth-svg-fallback" class="flex flex-col items-center justify-center">
+                    <div id="auth-svg-fallback" class="hidden flex-col items-center justify-center">
                         <svg class="w-14 h-14" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="32" cy="32" r="27" stroke="rgba(255,255,255,.38)" stroke-width="1.5"/>
                             <path d="M18 39C18 28.5 26.5 20 37 20L45 28C37 36 28.5 39 18 39Z" fill="white"/>
@@ -950,12 +988,16 @@
             const logoFallback = document.getElementById('auth-svg-fallback');
             const backgroundPreview = document.getElementById('auth-bg-preview');
             const logoPreview = document.getElementById('auth-logo-preview');
+            const defaultBackground = 'image/fond.png';
+            const defaultLogo = 'image/logo.png';
+            const selectedBackground = background || defaultBackground;
+            const selectedLogo = logo || defaultLogo;
 
-            if (background && backgroundImage) {
-                backgroundImage.src = background;
+            if (selectedBackground && backgroundImage) {
+                backgroundImage.src = selectedBackground;
                 backgroundImage.classList.remove('hidden');
                 if (backgroundPreview) {
-                    backgroundPreview.src = background;
+                    backgroundPreview.src = selectedBackground;
                     backgroundPreview.classList.remove('hidden');
                     document.getElementById('auth-bg-upload-icon')?.classList.add('hidden');
                 }
@@ -964,12 +1006,12 @@
                 backgroundImage.classList.add('hidden');
             }
 
-            if (logo && logoImage) {
-                logoImage.src = logo;
+            if (selectedLogo && logoImage) {
+                logoImage.src = selectedLogo;
                 logoImage.classList.remove('hidden');
                 logoFallback?.classList.add('hidden');
                 if (logoPreview) {
-                    logoPreview.src = logo;
+                    logoPreview.src = selectedLogo;
                     logoPreview.classList.remove('hidden');
                     document.getElementById('auth-logo-upload-icon')?.classList.add('hidden');
                 }
