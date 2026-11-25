@@ -17,7 +17,7 @@ Le site utilise Supabase Auth pour les comptes et `public.profiles` pour les abo
 
    Déconnectez puis reconnectez le compte pour renouveler son jeton d’accès.
 5. Dans **Project Settings → API**, copiez l’URL du projet et la clé publique **anon/publishable** dans [`supabase-config.js`](./supabase-config.js). Ces deux valeurs sont destinées au navigateur. N’y mettez jamais une clé `service_role`.
-6. Dans le tableau de bord Supabase, ajoutez `SUPABASE_SERVICE_ROLE_KEY` aux secrets des fonctions Edge. Déployez ensuite la fonction qui crée et supprime les comptes administrateur :
+6. Dans le tableau de bord Supabase, ajoutez `SUPABASE_SERVICE_ROLE_KEY` aux secrets des fonctions Edge. Déployez ensuite la fonction qui liste, crée, bloque, renouvelle et supprime les comptes :
 
    ```sh
    supabase login

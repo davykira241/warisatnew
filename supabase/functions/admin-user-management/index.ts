@@ -55,6 +55,85 @@ Deno.serve(async (request: Request) => {
   }
   const payload = body as Record<string, unknown>;
 
+  if (payload.action === "list") {
+    const { data, error } = await adminClient
+      .from("profiles")
+      .select("id, email, role, blocked, expires_at, created_at")
+      .neq("role", "admin")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.error("Failed to list users:", error.message);
+      return respond(500, { error: "Could not load users." });
+    }
+    return respond(200, { users: data || [] });
+  }
+
+  if (payload.action === "block" || payload.action === "renew") {
+    const userId = typeof payload.userId === "string" ? payload.userId : "";
+    if (!userId || userId === caller.id) {
+      return respond(400, { error: "A different user ID is required." });
+    }
+
+    const { data: { user: target }, error: targetError } =
+      await adminClient.auth.admin.getUserById(userId);
+    if (targetError || !target) {
+      return respond(404, { error: "User not found." });
+    }
+    if (target.app_metadata?.role === "admin") {
+      return respond(403, { error: "Administrator accounts cannot be changed here." });
+    }
+
+    if (payload.action === "block") {
+      if (typeof payload.blocked !== "boolean") {
+        return respond(400, { error: "A boolean blocked value is required." });
+      }
+
+      const { data: profile, error } = await adminClient
+        .from("profiles")
+        .update({ blocked: payload.blocked })
+        .eq("id", userId)
+        .select("id, blocked")
+        .maybeSingle();
+      if (error || !profile) {
+        console.error("Failed to update user block status:", error?.message || "Profile not found.");
+        return respond(500, { error: "Could not update the user's block status." });
+      }
+      return respond(200, { id: profile.id, blocked: profile.blocked });
+    }
+
+    const days = Number(payload.days);
+    if (!allowedDurations.has(days)) {
+      return respond(400, { error: "The selected subscription duration is not allowed." });
+    }
+
+    const { data: currentProfile, error: currentProfileError } = await adminClient
+      .from("profiles")
+      .select("expires_at")
+      .eq("id", userId)
+      .maybeSingle();
+    if (currentProfileError || !currentProfile) {
+      console.error("Failed to load user subscription:", currentProfileError?.message || "Profile not found.");
+      return respond(404, { error: "User profile not found." });
+    }
+
+    const currentExpiry = Date.parse(currentProfile.expires_at);
+    const baseTime = Number.isFinite(currentExpiry) && currentExpiry > Date.now()
+      ? currentExpiry
+      : Date.now();
+    const expiresAt = new Date(baseTime + days * 24 * 60 * 60 * 1000).toISOString();
+    const { data: profile, error } = await adminClient
+      .from("profiles")
+      .update({ expires_at: expiresAt, blocked: false })
+      .eq("id", userId)
+      .select("id, expires_at, blocked")
+      .maybeSingle();
+    if (error || !profile) {
+      console.error("Failed to renew user subscription:", error?.message || "Profile not found.");
+      return respond(500, { error: "Could not renew the user's subscription." });
+    }
+    return respond(200, { id: profile.id, expiresAt: profile.expires_at, blocked: profile.blocked });
+  }
+
   if (payload.action === "delete") {
     const userId = typeof payload.userId === "string" ? payload.userId : "";
     if (!userId || userId === caller.id) {

@@ -399,7 +399,7 @@
                 <div class="space-y-3">
                     <p class="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">Warisat · Abonnement</p>
                     <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight">Abonnement Expiré ou Suspendu</h1>
-                    <p class="text-sm sm:text-base leading-relaxed text-neutral-300">
+                    <p id="subscription-message" class="text-sm sm:text-base leading-relaxed text-neutral-300">
                         Votre accès au service a été interrompu. Pour continuer, veuillez renouveler votre abonnement.
                     </p>
                 </div>
@@ -935,7 +935,7 @@
         };
         const DAY_MS = 24 * 60 * 60 * 1000;
         const SUBSCRIPTION_NOTICE_WINDOW_MS = 5 * DAY_MS;
-        const SUBSCRIPTION_CHECK_INTERVAL_MS = 60 * 1000;
+        const SUBSCRIPTION_CHECK_INTERVAL_MS = 10 * 1000;
         let hlsPlayer = null;
 
         function isSupabaseServiceRoleKey(key) {
@@ -1284,17 +1284,36 @@
             cachedUsers = normalized;
         }
 
-        // Charge les profils autorisés par les politiques RLS Supabase.
+        async function invokeAdminAction(body) {
+            const { data, error } = await supabaseClient.functions.invoke('admin-user-management', { body });
+            if (error) {
+                let message = error.message || 'Action administrateur impossible.';
+                if (error.context && typeof error.context.clone === 'function') {
+                    try {
+                        const responseBody = await error.context.clone().json();
+                        if (typeof responseBody?.error === 'string') message = responseBody.error;
+                    } catch {
+                        // Keep the explicit message supplied by the Supabase client.
+                    }
+                }
+                throw new Error(message);
+            }
+            if (!data || typeof data !== 'object') {
+                throw new Error('La fonction administrateur a retourné une réponse invalide.');
+            }
+            return data;
+        }
+
+        // Charge les comptes via la fonction administrateur protégée par Supabase Auth.
         async function syncUsersFromSupabase() {
             if (!isSupabaseReady || !supabaseClient) {
                 throw new Error('Supabase n’est pas configuré.');
             }
-            const { data, error } = await supabaseClient
-                .from('profiles')
-                .select('id, email, role, blocked, expires_at, created_at')
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            const list = (data || [])
+            const response = await invokeAdminAction({ action: 'list' });
+            if (!Array.isArray(response.users)) {
+                throw new Error('La liste des utilisateurs est absente de la réponse serveur.');
+            }
+            const list = response.users
                 .map(normalizeUserRecord)
                 .filter(user => user && user.role !== 'admin');
             saveUsersDB(list);
@@ -1324,12 +1343,16 @@
             return user;
         }
 
-        function showSubscriptionScreen() {
+        function showSubscriptionScreen(message = '') {
             clearInterval(subscriptionCheckTimer);
             subscriptionCheckTimer = null;
             clearTimeout(inactivityTimer);
             inactivityTimer = null;
             currentSession = null;
+            if (message) {
+                const messageElement = document.getElementById('subscription-message');
+                if (messageElement) messageElement.textContent = message;
+            }
             const frame = document.getElementById('tv-frame');
             if (frame) frame.src = 'about:blank';
             document.getElementById('auth-screen')?.classList.add('hidden');
@@ -1376,6 +1399,11 @@
                 const notice = document.getElementById('subscription-notice');
                 if (!notice?.classList.contains('hidden')) {
                     updateSubscriptionNotice(user);
+                }
+            } catch (error) {
+                console.error('Vérification de l’abonnement impossible :', error);
+                if (currentSession === session) {
+                    showSubscriptionScreen('Impossible de vérifier votre abonnement. Vérifiez votre connexion ou contactez l’administrateur.');
                 }
             } finally {
                 subscriptionCheckInProgress = false;
@@ -1566,7 +1594,10 @@
         // ==================== FONCTIONS ADMINISTRATEUR ====================
         async function adminAddUser(e) {
             e.preventDefault();
-            if (!currentSession?.isAdmin || !supabaseClient) return;
+            if (!currentSession?.isAdmin || !supabaseClient) {
+                showToast('Action réservée à l’administrateur. Vérifiez votre session Supabase.');
+                return;
+            }
 
             const emailInput = document.getElementById('admin-new-email');
             const passInput = document.getElementById('admin-new-pass');
@@ -1582,10 +1613,7 @@
             }
 
             try {
-                const { error } = await supabaseClient.functions.invoke('admin-user-management', {
-                    body: { action: 'create', email, password, days }
-                });
-                if (error) throw error;
+                await invokeAdminAction({ action: 'create', email, password, days });
                 await syncUsersFromSupabase();
                 showToast(`Utilisateur ajouté (+${days} j)`);
             } catch (error) {
@@ -1604,16 +1632,8 @@
             const user = users.find(u => u.id === userId);
             if (!user) return;
 
-            const baseTime = user.expiresAt && user.expiresAt > Date.now() ? user.expiresAt : Date.now();
             try {
-                const { error } = await supabaseClient
-                    .from('profiles')
-                    .update({
-                        expires_at: new Date(baseTime + days * DAY_MS).toISOString(),
-                        blocked: false
-                    })
-                    .eq('id', userId);
-                if (error) throw error;
+                await invokeAdminAction({ action: 'renew', userId, days });
                 await syncUsersFromSupabase();
                 showToast(`Abonnement renouvelé de ${days} jours`);
                 renderAdminUsers();
@@ -1630,11 +1650,7 @@
 
             const nextBlocked = !user.blocked;
             try {
-                const { error } = await supabaseClient
-                    .from('profiles')
-                    .update({ blocked: nextBlocked })
-                    .eq('id', userId);
-                if (error) throw error;
+                await invokeAdminAction({ action: 'block', userId, blocked: nextBlocked });
                 await syncUsersFromSupabase();
                 showToast(nextBlocked ? 'Utilisateur bloqué' : 'Utilisateur débloqué');
                 renderAdminUsers();
@@ -1646,10 +1662,7 @@
         async function adminDeleteUser(userId) {
             if (!currentSession?.isAdmin || !supabaseClient) return;
             try {
-                const { error } = await supabaseClient.functions.invoke('admin-user-management', {
-                    body: { action: 'delete', userId }
-                });
-                if (error) throw error;
+                await invokeAdminAction({ action: 'delete', userId });
                 await syncUsersFromSupabase();
                 showToast('Utilisateur supprimé');
                 renderAdminUsers();
@@ -2123,6 +2136,12 @@
 
             const defaultServer = SERVERS[savedSettings.defaultServer] ? savedSettings.defaultServer : 'KO';
             selectServer(defaultServer, true);
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && currentSession && !currentSession.isAdmin) {
+                    void checkSubscriptionAccess();
+                }
+            });
 
             window.warisatDesktop?.onPopupRequested(handleDesktopPopup);
 
