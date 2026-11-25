@@ -1,0 +1,41 @@
+{
+  "name": "warisat",
+  "version": "1.0.0",
+  "private": true,
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test desktop/*.test.cjs",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^45.5.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "com.warisat.tv",
+    "productName": "Warisat",
+    "directories": {
+      "output": "dist-app"
+    },
+    "files": [
+      "desktop/**/*",
+      "index.html",
+      "supabase-config.js",
+      "image/**/*",
+      "!desktop/*.test.cjs"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
