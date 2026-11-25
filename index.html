@@ -2122,10 +2122,6 @@
             updateVypnUI();
 
             const defaultServer = SERVERS[savedSettings.defaultServer] ? savedSettings.defaultServer : 'KO';
-            const tvFrame = document.getElementById('tv-frame');
-            if (tvFrame && !window.warisatDesktop) {
-                tvFrame.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-presentation');
-            }
             selectServer(defaultServer, true);
 
             window.warisatDesktop?.onPopupRequested(handleDesktopPopup);
