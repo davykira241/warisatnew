@@ -33,7 +33,7 @@ Les comptes de l’ancien système local ne sont pas importés : leurs mots de p
 
 ## Lecteur vidéo et application MPV
 
-La version web inclut un lecteur HTML5 pour les URL directes de vidéo et les flux HLS. Les formats disponibles dépendent du navigateur; le serveur du flux doit autoriser la lecture depuis le site (CORS). La page ne peut pas lire ni réécrire les liens ouverts par les sites tiers intégrés dans l’iframe, car ils sont d’une autre origine.
+La version web inclut un lecteur HTML5 pour les URL directes de vidéo et les flux HLS. Les formats disponibles dépendent du navigateur; le serveur du flux doit autoriser la lecture depuis le site (CORS). Pour éviter les nouveaux onglets, les ouvertures de fenêtres depuis les sites intégrés dans l’iframe sont bloquées dans le navigateur. Les liens ciblant l’onglet courant continuent de fonctionner. Le navigateur ne peut pas réécrire les liens des sites tiers vers l’onglet courant, car ils sont d’une autre origine.
 
 La version desktop intercepte les ouvertures de nouvelle fenêtre des sites intégrés : les pages sont chargées dans la fenêtre Warisat et les URL directes de vidéo sont envoyées à MPV. MPV doit être installé séparément et accessible dans le `PATH` (`mpv` sur Linux/macOS, `mpv.exe` sur Windows). Pour indiquer un autre emplacement, définissez `MPV_PATH`.
 
