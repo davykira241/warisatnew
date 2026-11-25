@@ -27,6 +27,66 @@ $$;
 revoke all on function public.is_warisat_admin() from public;
 grant execute on function public.is_warisat_admin() to authenticated;
 
+create or replace function public.set_warisat_user_blocked(p_email text, p_blocked boolean)
+returns table (id uuid, email text, blocked boolean, expires_at timestamptz)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    if p_email is null or btrim(p_email) = '' or p_blocked is null then
+        raise exception 'A valid email and block status are required.' using errcode = '22023';
+    end if;
+
+    update public.profiles as profile
+    set blocked = p_blocked
+    where lower(profile.email) = lower(btrim(p_email))
+    returning profile.id, profile.email, profile.blocked, profile.expires_at
+    into id, email, blocked, expires_at;
+
+    if not found then
+        raise exception 'User profile not found.' using errcode = 'P0002';
+    end if;
+
+    return next;
+end;
+$$;
+
+create or replace function public.renew_warisat_subscription(p_email text, p_days integer)
+returns table (id uuid, email text, blocked boolean, expires_at timestamptz)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    if p_email is null or btrim(p_email) = '' then
+        raise exception 'A valid email is required.' using errcode = '22023';
+    end if;
+    if p_days is null or p_days not in (1, 3, 7, 30, 60, 365) then
+        raise exception 'Subscription duration must be 1, 3, 7, 30, 60, or 365 days.' using errcode = '22023';
+    end if;
+
+    update public.profiles as profile
+    set expires_at = greatest(profile.expires_at, pg_catalog.now())
+            + pg_catalog.make_interval(days => p_days),
+        blocked = false
+    where lower(profile.email) = lower(btrim(p_email))
+    returning profile.id, profile.email, profile.blocked, profile.expires_at
+    into id, email, blocked, expires_at;
+
+    if not found then
+        raise exception 'User profile not found.' using errcode = 'P0002';
+    end if;
+
+    return next;
+end;
+$$;
+
+revoke all on function public.set_warisat_user_blocked(text, boolean) from public, anon, authenticated;
+revoke all on function public.renew_warisat_subscription(text, integer) from public, anon, authenticated;
+grant execute on function public.set_warisat_user_blocked(text, boolean) to postgres, service_role;
+grant execute on function public.renew_warisat_subscription(text, integer) to postgres, service_role;
+
 drop policy if exists "profiles_read_own_or_admin" on public.profiles;
 create policy "profiles_read_own_or_admin"
     on public.profiles

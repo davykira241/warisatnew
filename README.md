@@ -31,6 +31,23 @@ Le site utilise Supabase Auth pour les comptes et `public.profiles` pour les abo
 
 Les comptes de l’ancien système local ne sont pas importés : leurs mots de passe n’étaient pas stockés dans un format migrable vers Supabase Auth. Les utilisateurs devront créer un nouveau compte. Les paramètres et images d’apparence restent locaux au navigateur.
 
+### Gestion directe depuis Supabase Studio
+
+Dans **Authentication → Users**, utilisez **Add user** pour créer un compte. Le déclencheur SQL crée son profil avec un essai d’un jour. Pour bloquer ou débloquer un compte depuis le **SQL Editor**, exécutez :
+
+```sql
+select * from public.set_warisat_user_blocked('client@example.com', true);  -- bloquer
+select * from public.set_warisat_user_blocked('client@example.com', false); -- débloquer
+```
+
+Pour renouveler un abonnement, utilisez une durée de `1`, `3`, `7`, `30`, `60` ou `365` jours. Le renouvellement repart de la date d’échéance si elle est encore valide, sinon de maintenant; il débloque également le compte :
+
+```sql
+select * from public.renew_warisat_subscription('client@example.com', 30);
+```
+
+Pour supprimer un compte, supprimez-le dans **Authentication → Users**. La clé étrangère supprime automatiquement son profil. Les fonctions SQL de blocage et de renouvellement sont exécutables par `postgres` (SQL Editor) et `service_role`, pas par les utilisateurs du site. Exécutez de nouveau [`supabase/schema.sql`](./supabase/schema.sql) pour installer ces fonctions si le schéma avait déjà été appliqué.
+
 ## Lecteur vidéo et application MPV
 
 La version web inclut un lecteur HTML5 pour les URL directes de vidéo et les flux HLS. Les formats disponibles dépendent du navigateur; le serveur du flux doit autoriser la lecture depuis le site (CORS). La page ne peut pas lire ni réécrire les liens ouverts par les sites tiers intégrés dans l’iframe, car ils sont d’une autre origine.
