@@ -682,6 +682,43 @@
                     </span>
                 </div>
 
+                <nav aria-label="Navigation du serveur" class="flex shrink-0 items-center gap-0.5">
+                    <button
+                        type="button"
+                        onclick="navigateTVFrame('back')"
+                        aria-label="Page précédente"
+                        title="Page précédente"
+                        class="rounded-full p-2 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m7 7-7-7 7-7"/>
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
+                        onclick="navigateTVFrame('forward')"
+                        aria-label="Page suivante"
+                        title="Page suivante"
+                        class="rounded-full p-2 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-7-7 7 7-7 7"/>
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
+                        onclick="navigateTVFrame('reload')"
+                        aria-label="Actualiser la page"
+                        title="Actualiser"
+                        class="rounded-full p-2 text-neutral-300 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20 11a8 8 0 0 0-14.8-4L3 10m0-6v6h6"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 13a8 8 0 0 0 14.8 4L21 14m0 6v-6h-6"/>
+                        </svg>
+                    </button>
+                </nav>
+
                 <!-- Sélecteur de serveurs -->
                 <div class="flex items-center gap-1.5 shrink-0">
                     <button
@@ -708,17 +745,19 @@
                     >
                         Server HU
                     </button>
+                    <button
+                        type="button"
+                        id="srv-btn-FILMS"
+                        onclick="selectServer('FILMS')"
+                        disabled
+                        class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-white/10 hover:bg-white/20 text-neutral-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                        Films
+                    </button>
                 </div>
 
                 <!-- Boutons utilitaires (VPN, Réglages TV, Admin si applicable, Masquer, Déconnexion) -->
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <button
-                        type="button"
-                        onclick="openVideoPlayer()"
-                        class="px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/30 text-amber-200 transition-colors"
-                    >
-                        Lecteur vidéo
-                    </button>
                     <button
                         type="button"
                         id="tv-vpn-btn"
@@ -762,15 +801,14 @@
             </div>
         </header>
 
-        <!-- Tiroir VPN -->
+        <!-- Information VPN -->
         <aside
             id="vypn-drawer"
-            class="hidden fixed top-20 right-4 z-50 w-80 max-w-[92vw] rounded-2xl bg-neutral-950/92 backdrop-blur-xl border border-white/15 p-5 shadow-2xl space-y-4"
+            class="hidden fixed top-20 right-4 z-50 w-80 max-w-[92vw] rounded-2xl bg-neutral-950/92 backdrop-blur-xl border border-white/15 p-5 shadow-2xl space-y-3"
         >
             <div class="flex items-center justify-between">
                 <div>
-                    <h3 class="text-sm font-bold text-white">Tunnel VPN Warisat</h3>
-                    <p id="vypn-status-text" class="text-xs text-neutral-400">Statut : Désactivé</p>
+                    <h3 class="text-sm font-bold text-white">VPN</h3>
                 </div>
                 <button
                     type="button"
@@ -780,36 +818,29 @@
                     ✕
                 </button>
             </div>
-
-            <div class="space-y-1.5">
-                <label for="vypn-region-select" class="block text-xs font-semibold text-neutral-300">Région de routage</label>
-                <select
-                    id="vypn-region-select"
-                    onchange="changeVypnRegion(this.value)"
-                    class="w-full rounded-xl bg-black/70 border border-white/15 px-3 py-2 text-xs text-white outline-none"
-                >
-                    <option value="Auto-Smart">Auto-Smart (Latence optimale)</option>
-                    <option value="Paris · FR">Paris · FR</option>
-                    <option value="Bruxelles · BE">Bruxelles · BE</option>
-                    <option value="Zurich · CH">Zurich · CH</option>
-                    <option value="Montréal · CA">Montréal · CA</option>
-                </select>
-            </div>
-
+            <p class="text-xs leading-relaxed text-neutral-300">
+                Pour Windows, Cloudflare WARP propose une option gratuite. Installez l’application puis activez WARP depuis celle-ci. Une page web ne peut pas activer elle-même un tunnel VPN.
+            </p>
             <button
                 type="button"
-                id="vypn-toggle-btn"
-                onclick="toggleVypnConnection()"
-                class="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white transition-colors"
+                onclick="openExternalUrl(VPN_DOWNLOAD_URL, 'Téléchargement Cloudflare WARP ouvert')"
+                class="w-full rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-white/15"
             >
-                Activer le VPN
+                Télécharger Cloudflare WARP
+            </button>
+            <button
+                type="button"
+                onclick="openExternalUrl(VPN_WINDOWS_GUIDE_URL, 'Guide d’installation Windows ouvert')"
+                class="w-full text-left text-xs text-neutral-400 underline-offset-2 hover:text-white hover:underline"
+            >
+                Voir le guide d’installation Windows
             </button>
         </aside>
 
         <!-- Tiroir Réglages TV -->
         <aside
             id="tv-settings-drawer"
-            class="hidden fixed top-20 right-4 z-50 w-80 max-w-[92vw] rounded-2xl bg-neutral-950/92 backdrop-blur-xl border border-white/15 p-5 shadow-2xl space-y-4"
+            class="hidden fixed top-20 right-4 z-50 w-80 max-h-[calc(100vh-6rem)] max-w-[92vw] overflow-y-auto rounded-2xl bg-neutral-950/95 backdrop-blur-xl border border-white/15 p-5 shadow-2xl space-y-4"
         >
             <div class="flex items-center justify-between">
                 <div>
@@ -848,11 +879,51 @@
                     class="w-4 h-4 accent-red-600 rounded"
                 />
             </label>
+
+            <div class="space-y-2 border-t border-white/10 pt-3">
+                <div class="flex items-center justify-between gap-3">
+                    <label for="tv-brightness" class="text-xs font-medium text-neutral-200">Luminosité du flux</label>
+                    <span id="tv-brightness-value" class="text-xs text-neutral-400">100%</span>
+                </div>
+                <input
+                    id="tv-brightness"
+                    type="range"
+                    min="50"
+                    max="150"
+                    step="5"
+                    value="100"
+                    oninput="updateTVSetting('brightness', Number(this.value), false)"
+                    class="w-full accent-red-600"
+                />
+            </div>
+
+            <button
+                type="button"
+                id="tv-fullscreen-btn"
+                onclick="toggleTVFullscreen()"
+                class="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-left text-xs font-semibold text-neutral-200 hover:bg-white/10"
+            >
+                Passer en plein écran
+            </button>
+
+            <label class="flex items-center justify-between gap-3 border-t border-white/10 pt-3 cursor-pointer">
+                <span class="text-xs font-medium text-neutral-200">Bloqueur de publicités</span>
+                <input
+                    id="tv-ad-block"
+                    type="checkbox"
+                    onchange="updateTVSetting('adBlock', this.checked)"
+                    class="w-4 h-4 accent-red-600 rounded"
+                />
+            </label>
+            <p class="text-[11px] leading-relaxed text-neutral-500">
+                Disponible dans l’application de bureau. Un VPN et l’amplification audio des sites externes nécessitent un outil système.
+            </p>
         </aside>
 
         <!-- Cadre plein écran du flux TV -->
         <iframe
             id="tv-frame"
+            name="tv-frame"
             src="about:blank"
             title="Flux Warisat TV"
             allowfullscreen
@@ -905,6 +976,19 @@
                     preload="metadata"
                     class="hidden max-h-[70vh] w-full bg-black"
                 ></video>
+                <label for="video-player-volume" class="flex items-center gap-3 text-xs text-neutral-300">
+                    Volume du lecteur Warisat
+                    <input
+                        id="video-player-volume"
+                        type="range"
+                        min="0"
+                        max="100"
+                        value="100"
+                        oninput="setVideoPlayerVolume(this.value)"
+                        class="flex-1 accent-amber-500"
+                    />
+                    <span id="video-player-volume-value">100%</span>
+                </label>
                 <p id="video-player-status" role="status" class="min-h-5 text-xs text-neutral-400">
                     Collez une URL directe. Les flux HLS et les formats pris en charge par le navigateur peuvent être lus ici.
                 </p>
@@ -929,7 +1013,6 @@
 
         const STORAGE_KEYS = {
             TV_SETTINGS: 'warisat_tv_settings_v1',
-            VPN_STATE: 'warisat_vpn_state_v1',
             SUPABASE_CFG: 'warisat_supabase_cfg_v1'
         };
         const DAY_MS = 24 * 60 * 60 * 1000;
@@ -953,8 +1036,13 @@
         const SERVERS = {
             KO: 'https://kool.to',
             VA: 'https://vavoo.to',
-            HU: 'https://huhu.to'
+            HU: 'https://huhu.to',
+            FILMS: 'https://french-stream.net'
         };
+        const VPN_DOWNLOAD_URL = 'https://downloads.cloudflareclient.com/v1/download/windows/ga';
+        const VPN_WINDOWS_GUIDE_URL = 'https://developers.cloudflare.com/warp-client/get-started/windows/';
+        const SERVER_KEYS = Object.keys(SERVERS);
+        const EMBEDDED_SERVER_KEYS = SERVER_KEYS.filter(key => key !== 'FILMS');
 
         let supabaseClient = null;
         let isSupabaseReady = false;
@@ -1819,11 +1907,14 @@
                 const raw = localStorage.getItem(STORAGE_KEYS.TV_SETTINGS);
                 const parsed = raw ? JSON.parse(raw) : {};
                 return {
-                    defaultServer: SERVERS[parsed.defaultServer] ? parsed.defaultServer : 'KO',
-                    autoHide: typeof parsed.autoHide === 'boolean' ? parsed.autoHide : true
+                    defaultServer: EMBEDDED_SERVER_KEYS.includes(parsed.defaultServer) ? parsed.defaultServer : 'KO',
+                    autoHide: typeof parsed.autoHide === 'boolean' ? parsed.autoHide : true,
+                    brightness: Number.isFinite(parsed.brightness) ? Math.min(150, Math.max(50, parsed.brightness)) : 100,
+                    adBlock: Boolean(parsed.adBlock),
+                    videoVolume: Number.isFinite(parsed.videoVolume) ? Math.min(100, Math.max(0, parsed.videoVolume)) : 100
                 };
             } catch (e) {
-                return { defaultServer: 'KO', autoHide: true };
+                return { defaultServer: 'KO', autoHide: true, brightness: 100, adBlock: false, videoVolume: 100 };
             }
         }
 
@@ -1841,11 +1932,50 @@
 
             const autoHideChk = document.getElementById('tv-auto-hide');
             if (autoHideChk) autoHideChk.checked = settings.autoHide;
+
+            const brightness = document.getElementById('tv-brightness');
+            if (brightness) brightness.value = String(settings.brightness);
+            const brightnessValue = document.getElementById('tv-brightness-value');
+            if (brightnessValue) brightnessValue.textContent = `${settings.brightness}%`;
+            const frame = document.getElementById('tv-frame');
+            if (frame) frame.style.filter = `brightness(${settings.brightness}%)`;
+
+            const adBlock = document.getElementById('tv-ad-block');
+            if (adBlock) {
+                adBlock.disabled = !window.warisatDesktop;
+                adBlock.checked = Boolean(window.warisatDesktop && settings.adBlock);
+                adBlock.title = window.warisatDesktop
+                    ? ''
+                    : 'Le bloqueur est disponible uniquement dans l’application de bureau.';
+            }
+
+            const volume = document.getElementById('video-player-volume');
+            if (volume) volume.value = String(settings.videoVolume);
+            const volumeValue = document.getElementById('video-player-volume-value');
+            if (volumeValue) volumeValue.textContent = `${settings.videoVolume}%`;
+            const video = document.getElementById('video-player');
+            if (video) video.volume = settings.videoVolume / 100;
         }
 
-        function updateTVSetting(key, value) {
+        async function updateTVSetting(key, value, notify = true) {
             const current = getTVSettings();
+            if (key === 'adBlock' && !window.warisatDesktop) {
+                applyTVSettingsToUI(current);
+                showToast('Le bloqueur de publicités nécessite l’application de bureau.');
+                return;
+            }
             current[key] = value;
+            if (key === 'brightness') {
+                const brightness = Math.min(150, Math.max(50, Number(value) || 100));
+                current.brightness = brightness;
+                const frame = document.getElementById('tv-frame');
+                if (frame) frame.style.filter = `brightness(${brightness}%)`;
+                const label = document.getElementById('tv-brightness-value');
+                if (label) label.textContent = `${brightness}%`;
+            } else if (key === 'videoVolume') {
+                current.videoVolume = Math.min(100, Math.max(0, Number(value) || 0));
+                setVideoPlayerVolume(current.videoVolume, false);
+            }
             saveTVSettings(current);
             applyTVSettingsToUI(current);
             if (key === 'autoHide') {
@@ -1855,20 +1985,37 @@
                     clearTimeout(inactivityTimer);
                 }
             }
-            showToast('Réglage TV enregistré');
+            if (key === 'adBlock') {
+                try {
+                    await window.warisatDesktop.setAdBlockEnabled(Boolean(value));
+                } catch (error) {
+                    current.adBlock = !Boolean(value);
+                    saveTVSettings(current);
+                    applyTVSettingsToUI(current);
+                    console.error('Impossible de modifier le bloqueur de publicités :', error);
+                    showToast('Impossible de modifier le bloqueur de publicités.');
+                    return;
+                }
+            }
+            if (notify) showToast('Réglage TV enregistré');
         }
 
         function selectServer(serverKey, silent = false) {
             if (!SERVERS[serverKey]) return;
+            if (serverKey === 'FILMS') {
+                void openFilmsServer(silent);
+                return;
+            }
             activeServerKey = serverKey;
 
-            ['KO', 'VA', 'HU'].forEach(k => {
+            SERVER_KEYS.forEach(k => {
                 const btn = document.getElementById(`srv-btn-${k}`);
                 if (!btn) return;
+                btn.disabled = !SERVERS[k];
                 if (k === serverKey) {
                     btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-red-600 text-white shadow-md shadow-red-600/30';
                 } else {
-                    btn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-white/10 hover:bg-white/20 text-neutral-200';
+                    btn.className = `px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-white/10 hover:bg-white/20 text-neutral-200${SERVERS[k] ? '' : ' disabled:cursor-not-allowed disabled:opacity-40'}`;
                 }
             });
 
@@ -1879,6 +2026,61 @@
 
             if (!silent) {
                 showToast(`Server ${serverKey} sélectionné`);
+            }
+            resetInactivityTimer();
+        }
+
+        async function openExternalUrl(url, successMessage = '') {
+            if (window.warisatDesktop) {
+                try {
+                    await window.warisatDesktop.openExternalUrl(url);
+                } catch (error) {
+                    console.error('Impossible d’ouvrir le lien externe :', error);
+                    showToast('Impossible d’ouvrir ce lien.');
+                    return false;
+                }
+            } else {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
+            if (successMessage) showToast(successMessage);
+            return true;
+        }
+
+        function openFilmsServer(silent = false) {
+            void openExternalUrl(SERVERS.FILMS, silent ? '' : 'Films ouvert dans un nouvel onglet');
+            resetInactivityTimer();
+        }
+
+        async function navigateTVFrame(action) {
+            if (!['back', 'forward', 'reload'].includes(action)) return;
+            if (window.warisatDesktop) {
+                try {
+                    await window.warisatDesktop.navigateTVFrame(action);
+                } catch (error) {
+                    console.error(`Navigation ${action} impossible :`, error);
+                    showToast('La navigation du serveur a échoué.');
+                }
+                resetInactivityTimer();
+                return;
+            }
+
+            try {
+                const frameWindow = document.getElementById('tv-frame')?.contentWindow;
+                if (!frameWindow) throw new Error('Cadre de navigation indisponible.');
+                if (action === 'reload') {
+                    try {
+                        frameWindow.location.reload();
+                    } catch {
+                        const frame = document.getElementById('tv-frame');
+                        if (!frame || !SERVERS[activeServerKey]) throw new Error('Cadre de navigation indisponible.');
+                        frame.src = SERVERS[activeServerKey];
+                    }
+                } else {
+                    window.history[action]();
+                }
+            } catch (error) {
+                console.error(`Navigation ${action} impossible :`, error);
+                showToast('La navigation du serveur a échoué.');
             }
             resetInactivityTimer();
         }
@@ -1926,45 +2128,6 @@
         }
 
         // ==================== TIROIR VPN ====================
-        function getVpnState() {
-            try {
-                const raw = localStorage.getItem(STORAGE_KEYS.VPN_STATE);
-                const parsed = raw ? JSON.parse(raw) : {};
-                return {
-                    enabled: Boolean(parsed.enabled),
-                    region: parsed.region || 'Auto-Smart'
-                };
-            } catch (e) {
-                return { enabled: false, region: 'Auto-Smart' };
-            }
-        }
-
-        function updateVypnUI() {
-            const state = getVpnState();
-            const statusEl = document.getElementById('vypn-status-text');
-            const btnEl = document.getElementById('vypn-toggle-btn');
-            const topBtn = document.getElementById('tv-vpn-btn');
-            const regionSel = document.getElementById('vypn-region-select');
-
-            if (regionSel) regionSel.value = state.region;
-            if (statusEl) {
-                statusEl.textContent = state.enabled
-                    ? `Actif · ${state.region}`
-                    : 'Statut : Désactivé';
-            }
-            if (btnEl) {
-                btnEl.textContent = state.enabled ? 'Désactiver le VPN' : 'Activer le VPN';
-                btnEl.className = state.enabled
-                    ? 'w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors'
-                    : 'w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white transition-colors';
-            }
-            if (topBtn) {
-                topBtn.className = state.enabled
-                    ? 'px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600/25 hover:bg-emerald-600/35 border border-emerald-500/40 text-emerald-300 transition-colors'
-                    : 'px-3 py-1.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 border border-white/10 text-neutral-200 transition-colors';
-            }
-        }
-
         function toggleVypnDrawer() {
             closeTVSettingsDrawer();
             const drawer = document.getElementById('vypn-drawer');
@@ -1975,30 +2138,6 @@
 
         function closeVypnDrawer() {
             document.getElementById('vypn-drawer')?.classList.add('hidden');
-        }
-
-        function toggleVypnConnection() {
-            const state = getVpnState();
-            state.enabled = !state.enabled;
-            try {
-                localStorage.setItem(STORAGE_KEYS.VPN_STATE, JSON.stringify(state));
-            } catch (e) {}
-            updateVypnUI();
-            showToast(state.enabled ? `VPN activé (${state.region})` : 'VPN désactivé');
-            resetInactivityTimer();
-        }
-
-        function changeVypnRegion(region) {
-            const state = getVpnState();
-            state.region = region;
-            try {
-                localStorage.setItem(STORAGE_KEYS.VPN_STATE, JSON.stringify(state));
-            } catch (e) {}
-            updateVypnUI();
-            if (state.enabled) {
-                showToast(`Routage VPN : ${region}`);
-            }
-            resetInactivityTimer();
         }
 
         // ==================== TIROIR RÉGLAGES TV ====================
@@ -2012,6 +2151,49 @@
 
         function closeTVSettingsDrawer() {
             document.getElementById('tv-settings-drawer')?.classList.add('hidden');
+        }
+
+        async function toggleTVFullscreen() {
+            try {
+                if (document.fullscreenElement) {
+                    await document.exitFullscreen();
+                } else {
+                    await document.getElementById('tv-interface')?.requestFullscreen();
+                }
+            } catch (error) {
+                console.error('Impossible de modifier le mode plein écran :', error);
+                showToast('Le plein écran n’est pas disponible dans ce navigateur.');
+            }
+        }
+
+        function updateFullscreenButton() {
+            const button = document.getElementById('tv-fullscreen-btn');
+            if (button) {
+                button.textContent = document.fullscreenElement
+                    ? 'Quitter le plein écran'
+                    : 'Passer en plein écran';
+            }
+        }
+
+        function setVideoPlayerVolume(value, persist = true) {
+            const volume = Math.min(100, Math.max(0, Number(value) || 0));
+            const video = document.getElementById('video-player');
+            const slider = document.getElementById('video-player-volume');
+            const label = document.getElementById('video-player-volume-value');
+            if (video) video.volume = volume / 100;
+            if (slider) slider.value = String(volume);
+            if (label) label.textContent = `${volume}%`;
+            if (persist) updateTVSetting('videoVolume', volume, false);
+        }
+
+        async function syncDesktopAdBlock(enabled) {
+            if (!window.warisatDesktop) return;
+            try {
+                await window.warisatDesktop.setAdBlockEnabled(enabled);
+            } catch (error) {
+                console.error('Impossible d’appliquer le bloqueur de publicités :', error);
+                showToast('Impossible d’appliquer le bloqueur de publicités.');
+            }
         }
 
         function openVideoPlayer() {
@@ -2071,6 +2253,7 @@
                 return;
             }
 
+            video.volume = getTVSettings().videoVolume / 100;
             if (window.warisatDesktop) {
                 status.textContent = 'Ouverture du flux dans MPV…';
                 status.textContent = await launchWithMpv(url)
@@ -2152,9 +2335,11 @@
 
             const savedSettings = getTVSettings();
             applyTVSettingsToUI(savedSettings);
-            updateVypnUI();
+            void syncDesktopAdBlock(savedSettings.adBlock);
+            document.addEventListener('fullscreenchange', updateFullscreenButton);
+            updateFullscreenButton();
 
-            const defaultServer = SERVERS[savedSettings.defaultServer] ? savedSettings.defaultServer : 'KO';
+            const defaultServer = EMBEDDED_SERVER_KEYS.includes(savedSettings.defaultServer) ? savedSettings.defaultServer : 'KO';
             selectServer(defaultServer, true);
 
             document.addEventListener('visibilitychange', () => {
@@ -2197,7 +2382,7 @@
                         hideTVMenu();
                     }
                 } else if (!menuHidden) {
-                    const order = ['KO', 'VA', 'HU'];
+                    const order = EMBEDDED_SERVER_KEYS.filter(key => SERVERS[key]);
                     const idx = order.indexOf(activeServerKey);
                     if (e.key === 'ArrowRight') {
                         e.preventDefault();
